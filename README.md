@@ -7,7 +7,7 @@ version).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="screenshots/swap-hero-dark.gif">
-  <img src="screenshots/swap-hero-light.gif" width="900" alt="Hold Option, tap Tab: the Swap panel opens. Return opens WhatsApp into its chats with unread dots, then Slack into its recent channels and DMs; N starts a new Slack message">
+  <img src="screenshots/swap-hero-light.gif" width="900" alt="Hold Option, tap Tab: the Swap panel opens with the Glance bar (CPU, Memory, Quota, Timer) on top. Return opens WhatsApp into its chats with unread dots, then Slack into its recent channels and DMs; N starts a new Slack message; Space searches windows, apps and files">
 </picture>
 
 Only Accessibility is required: Swap never asks for Screen Recording. Tabs from a browser and file search
