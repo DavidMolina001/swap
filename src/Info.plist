@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleExecutable</key>
+	<string>Swap</string>
+	<key>CFBundleIconFile</key>
+	<string>Swap</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.davidmolina.swap</string>
+	<key>CFBundleName</key>
+	<string>Swap</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.8.3</string>
+	<key>CFBundleVersion</key>
+	<string>803</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Swap reads the tabs of a browser window so you can jump straight to one.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Lets Swap's file search find files on your Desktop.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Lets Swap's file search find files in Documents.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Lets Swap's file search find files in Downloads.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 David Molina. MIT licence.</string>
+</dict>
+</plist>
