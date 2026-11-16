@@ -1,4 +1,7 @@
-# Swap
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshots/swap-wordmark-dark.svg">
+  <img src="screenshots/swap-wordmark-light.svg" width="360" alt="Swap">
+</picture>
 
 The fastest way to get to anything on your Mac without leaving the keyboard. Hold **Option**, tap **Tab**,
 and you are looking at where you were working: every window in last-used order, the tabs and chats inside
