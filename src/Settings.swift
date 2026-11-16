@@ -27,6 +27,9 @@ enum Settings {
     static var showMinimised: Bool { get { bool("showMinimised", true) } set { set("showMinimised", newValue) } }
     static var showHidden: Bool { get { bool("showHidden", true) } set { set("showHidden", newValue) } }
     static var appearance: Appearance { get { Appearance(rawValue: d.string(forKey: "appearance") ?? "") ?? .system } set { set("appearance", newValue.rawValue) } }
+    // Colour theme: an id from tokens.json "themes" (Full Stripe by default; System is the macOS accent colour look).
+    static var theme: String { get { Tokens.Themes.named(d.string(forKey: "theme") ?? "").id } set { set("theme", newValue) } }
+    static var palette: Palette { Tokens.Themes.named(theme) }
     static var hiddenApps: [String] { get { d.stringArray(forKey: "hiddenApps") ?? [] } set { set("hiddenApps", newValue) } }
     static var hideUntitled: Bool { get { bool("hideUntitled", false) } set { set("hideUntitled", newValue) } }
     static var keepOpen: Bool { get { bool("keepOpen", false) } set { set("keepOpen", newValue) } }

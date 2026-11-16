@@ -73,8 +73,9 @@ a quick Option + Tab (released straight away) flips to it without showing the li
 another desktop. Only the letters in the table reach an app, and only as its Command shortcut; nothing you
 type while the list is open lands in the window behind it.
 Minimised windows carry a "Minimised" tag and are restored when picked. Each row shows the app name on
-the right. The list follows the system appearance (light or dark) and the system accent colour, with black
-text on the selected row when the accent colour is too light for white. It honours Increase Contrast, Reduce
+the right. The list follows the system appearance (light or dark) and wears a colour theme: Full Stripe by
+default, or System, which follows the system accent colour, with black text on the selected row when the accent
+colour is too light for white. It honours Increase Contrast, Reduce
 Motion and Reduce Transparency. VoiceOver support is written but has not been tried with VoiceOver running.
 
 **Desktops.** The list opens on the desktop you're on. Swipe left with two fingers (the same direction as
@@ -110,7 +111,7 @@ Settings has seven panes:
 | Keys | Quick flip; number keys; letter keys; keep the list open until you choose; every key listed |
 | List | What is listed: minimised windows, windows of hidden apps, windows with no title, the search row; apps to leave out |
 | Inside apps | **Show tabs and chats inside apps** (off by default); order of tabs and chats; Slack: one row per workspace, which workspaces show, Clear saved chats; WhatsApp: show Archived; pins |
-| Appearance | A preview that plays a setting once when you point at it or change it, then rests on your own list. Appearance (match system, light, dark); list width (same every time, or fit the longest name); app name on the right; animations (off by default, for the fade on opening; a desktop swipe always follows your fingers unless Reduce Motion is on); one page per desktop or all desktops in one list; page dots (one per desktop, or compact: 5 at most); hide desktops with no windows |
+| Appearance | A preview that plays a setting once when you point at it or change it, then rests on your own list. Theme (Full Stripe, Soft Rainbow, Dusk, Night Arcade, Sorbet, Sea Glass, Dusty Seventies, Blossom, or System for the Mac's accent colour: the selected row, unread dots and Glance bar tiles; Full Stripe also puts a thin stripe band along the top and stripes at the end of the selected row); appearance (match system, light, dark); list width (same every time, or fit the longest name); app name on the right; animations (off by default, for the fade on opening; a desktop swipe always follows your fingers unless Reduce Motion is on); one page per desktop or all desktops in one list; page dots (one per desktop, or compact: 5 at most); hide desktops with no windows |
 | Glance bar | On or off; density (Compact, Regular, Detailed); Quota widget text; widgets and their order; timer presets and alert |
 | About | Version, links, releases |
 
@@ -324,7 +325,8 @@ Mac source, `src/`:
   Keys: `shortcut` (optionTab | commandTab | controlTab), `quickFlip`, `numberKeys`, `actionKeys`, `drillIn`, `childOrder` (natural | recent),
   `slackWorkspaces`, `slackHidden` (workspace names), `whatsappArchive`, `pins` (workspace or bundle id: child ids), `searchRow` (default on), `keepOpen`, `showOnScreen` (active | mouse),
   `desktops` (pages | flat), `hideEmptyDesktops`, `pageDots` (all | compact), `panelWidth` (fixed | fit), `showMinimised`, `showHidden`,
-  `showAppName`, `appearance` (system | light | dark), `hiddenApps` (bundle ids), `hideUntitled`, `animations`,
+  `showAppName`, `appearance` (system | light | dark), `theme` (fullStripe | softRainbow | dusk | nightArcade | sorbet | seaGlass |
+  dustySeventies | blossom | system; default fullStripe), `hiddenApps` (bundle ids), `hideUntitled`, `animations`,
   `glanceBar`, `glanceDensity` (compact | regular | detailed), `glanceWidgets` (ordered: cpu memory gpu quota
   network downloads timer), `quotaCell` (tightest | pill), `timerAlert`, `timerNotify`.
   Saved by the providers: `slackTeams`, `slackRecents`, `slackWorkspaceUse`.

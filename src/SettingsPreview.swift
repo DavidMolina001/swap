@@ -300,8 +300,20 @@ final class PanelPreview: ObservableObject {
         let timerBase = Glance.samples([.cpu, .memory, .timer])
         let timerCap = "Timer: 18:42 left, counting down"
         let widthCap = "List width: same size on Desktop 1 and Desktop 2"
+        // Theme: everything a theme colours in one picture: the selected row, unread dots on a row and a chat, the tiles.
+        func app(_ id: CGWindowID, _ name: String, _ hex: UInt32, _ title: String) -> WindowItem {
+            WindowItem(app: nil, window: nil, id: id, title: title, appName: name, icon: PanelPreview.icon(name, hex), minimized: false)
+        }
+        var slack = app(1, "Slack", 0x4a154b, "Acme"); slack.expandable = true; slack.dot = true
+        var whatsApp = app(2, "WhatsApp", 0x25d366, "WhatsApp"); whatsApp.expandable = true; whatsApp.expanded = true; whatsApp.dot = true
+        let chats = [("Family", 2), ("Five-a-side", 0)].map { chat in
+            WindowItem(app: nil, window: nil, id: whatsApp.id, title: chat.0, appName: whatsApp.appName, icon: whatsApp.icon, minimized: false,
+                       depth: 1, child: ChildItem(id: chat.0, title: chat.0, detail: "", icon: nil, active: false, unread: chat.1), parentKey: whatsApp.key)
+        }
+        let themeScene = S(items: [slack, whatsApp] + chats, header: PanelPreview.header("Desktop 1", 0, 3), glance: Glance.samples(bar))
 
         return [
+            "theme": Demo(caption: "Theme: selected row, unread dots and Glance bar tiles", frames: [themeScene]),
             "show": Demo(caption: "Show glance bar: off leaves the list as it is", frames: [
                 base,
                 bars(bar, "On: readings appear above the list, taken only while it is open"),
