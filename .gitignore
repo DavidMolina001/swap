@@ -2,3 +2,4 @@ build/
 .DS_Store
 Behind the scenes/
 QA reports/
+.claude/

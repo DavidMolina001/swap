@@ -550,7 +550,8 @@ final class Controller {
         }
         // Swap's own row, always last and only on the desktop you are on. It is not in `pages`, so recency, the quick flip,
         // "the window you came from" and search never see it.
-        if page == currentPage, Settings.showSelfInList { rows.append(.swapRow()) }
+        // An empty desktop keeps its "swipe to the next desktop" hint instead, unless no desktop has a window at all.
+        if page == currentPage, Settings.showSelfInList, !rows.isEmpty || !pages.contains(where: { !$0.items.isEmpty }) { rows.append(.swapRow()) }
         return rows
     }
 

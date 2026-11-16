@@ -74,7 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func buildMenu() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        normalIcon = NSImage(systemSymbolName: "rectangle.on.rectangle", accessibilityDescription: "Swap")
+        normalIcon = MenuBarIcon.image()
         if let button = statusItem.button { button.image = normalIcon }
         let menu = NSMenu()
         menu.autoenablesItems = false
@@ -306,7 +306,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         flashTimer?.invalidate()
         flashUntil = Date().addingTimeInterval(10)
         flashOn = false
-        let alt = NSImage(systemSymbolName: "timer.circle.fill", accessibilityDescription: "Timer done")
+        let alt = MenuBarIcon.flashImage()
             ?? NSImage(systemSymbolName: "timer", accessibilityDescription: "Timer done")
         flashTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] t in
             guard let self, let button = self.statusItem.button else { t.invalidate(); return }
