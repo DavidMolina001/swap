@@ -9,10 +9,12 @@ struct Theme {
     let noColour: Bool          // Differentiate Without Colour
     let large: Bool             // a 27 inch class screen: slightly bigger rows and text
     let blackInk: Bool          // the accent colour is too light for white text on the selected row
+    let palette: Palette        // the colour theme picked in Settings (tokens.json "themes")
 
     init(screen: NSScreen?, solid: Bool = false) {
         let ws = NSWorkspace.shared
         dark = Settings.isDark
+        palette = Settings.palette
         var contrast = ws.accessibilityDisplayShouldIncreaseContrast
         #if SELFTEST
         if ProcessInfo.processInfo.environment["SWAP_CONTRAST"] == "1" { contrast = true }   // QA renders: no system setting changed
@@ -23,6 +25,12 @@ struct Theme {
         large = (screen?.frame.width ?? 1440) >= Tokens.Size.largeScreenWidth
         blackInk = Theme.needsBlackInk(accent: NSColor.controlAccentColor, alpha: contrast ? 1 : 0.9,
                                        over: dark ? Tokens.Color.panelSolid.dark : Tokens.Color.panelSolid.light)
+    }
+
+    static func luminance(_ c: NSColor) -> CGFloat {
+        guard let c = c.usingColorSpace(.sRGB) else { return 0 }
+        func linear(_ v: CGFloat) -> CGFloat { v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+        return 0.2126 * linear(c.redComponent) + 0.7152 * linear(c.greenComponent) + 0.0722 * linear(c.blueComponent)
     }
 
     // White stays unless it would drop below 3:1 on the accent colour. The macOS blue, pink, red and purple sit at 3.3 to
@@ -37,15 +45,72 @@ struct Theme {
         return 1.05 / (luminance + 0.05) < 3
     }
 
+    // A theme replaces some colours by token name. Its selected-row text is set per theme (measured to 4.5:1 or more),
+    // so the black ink rule only applies to the System theme. With Increase Contrast the app name on a themed
+    // selection takes the full title colour.
     func color(_ shade: Shade) -> NSColor {
+        if let own = palette.colors[shade.key] {
+            if contrast, shade.key == Tokens.Color.selectionSub.key, let text = palette.colors[Tokens.Color.selectionText.key] { return text(dark) }
+            return own(dark)
+        }
         if shade.onAccent, blackInk { return NSColor.black.withAlphaComponent(shade(dark).alphaComponent) }
         return contrast ? shade.contrast(dark) : shade(dark)
     }
+    var themed: Bool { palette.colors[Tokens.Color.selection.key] != nil }
     var rowHeight: CGFloat { large ? Tokens.Size.rowHeightLarge : Tokens.Size.rowHeight }
     var icon: CGFloat { large ? Tokens.Size.iconLarge : Tokens.Size.icon }
     var titleFont: NSFont { large ? Tokens.Font.titleLarge : Tokens.Font.title }
     var titleSelectedFont: NSFont { large ? NSFont.systemFont(ofSize: Tokens.Font.titleLarge.pointSize, weight: .medium) : Tokens.Font.titleSelected }
-    var selection: NSColor { contrast ? NSColor.controlAccentColor : color(Tokens.Color.selection) }
+    var selection: NSColor {
+        if themed { return color(Tokens.Color.selection).withAlphaComponent(1) }
+        return contrast ? NSColor.controlAccentColor : color(Tokens.Color.selection)
+    }
+    // Right inset of a row's text: rows keep the stripe tail clear while the theme has one, selected or not, so nothing shifts.
+    var rowTrailing: CGFloat { palette.tail ? Tokens.Size.stripeTailReserve : Tokens.Size.textInsetRight }
+    // Extra room at the top of the panel for the stripe band.
+    var bandRoom: CGFloat { palette.band ? Tokens.Size.stripeBand + Tokens.Size.stripeBandGap : 0 }
+
+    // The selected row's fill. With Increase Contrast a theme's selection that is under 3:1 on the panel (the pastel ones
+    // in light mode) gets an edge, since its colour alone barely tells it from the panel. `tail` adds the theme's stripes.
+    func drawSelection(in row: NSRect, tail: Bool) {
+        let rect = row.insetBy(dx: Tokens.Size.selectionInsetX, dy: Tokens.Size.selectionInsetY)
+        let shape = NSBezierPath(roundedRect: rect, xRadius: Tokens.Radius.selection, yRadius: Tokens.Radius.selection)
+        selection.setFill()
+        shape.fill()
+        if tail, palette.tail, palette.stripes.count > 1 {
+            NSGraphicsContext.saveGraphicsState()
+            shape.addClip()
+            let colours = palette.stripes.dropFirst().map { $0(dark) }   // stripe 1 is the selection colour
+            let w = Tokens.Size.stripeTail, lean = Tokens.Size.stripeTailSlant
+            for (i, c) in colours.enumerated() {
+                let left = rect.maxX - CGFloat(colours.count - i) * w
+                let right = i == colours.count - 1 ? rect.maxX + lean + 1 : left + w   // the last one runs off the edge
+                let p = NSBezierPath()
+                p.move(to: NSPoint(x: left, y: rect.minY))
+                p.line(to: NSPoint(x: right, y: rect.minY))
+                p.line(to: NSPoint(x: right - lean, y: rect.maxY))
+                p.line(to: NSPoint(x: left - lean, y: rect.maxY))
+                p.close()
+                c.setFill()
+                p.fill()
+            }
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        if contrast, themed {
+            let panel = color(Tokens.Color.panelSolid), l1 = Theme.luminance(selection), l2 = Theme.luminance(panel)
+            if (max(l1, l2) + 0.05) / (min(l1, l2) + 0.05) < 3 {
+                let edge = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), xRadius: Tokens.Radius.selection - 0.5, yRadius: Tokens.Radius.selection - 0.5)
+                edge.lineWidth = 1
+                color(Tokens.Color.label).withAlphaComponent(0.6).setStroke()
+                edge.stroke()
+            }
+        }
+        if noColour {   // a bar at the left edge marks the selection for people who turn colour cues off
+            color(Tokens.Color.selectionText).setFill()
+            NSBezierPath(roundedRect: NSRect(x: row.minX + 4, y: row.minY + 8, width: Tokens.Size.selectionBar, height: row.height - 16),
+                         xRadius: 1.5, yRadius: 1.5).fill()
+        }
+    }
     var separator: NSColor { contrast ? color(Tokens.Color.separator).withAlphaComponent(0.25) : color(Tokens.Color.separator) }
     var rim: NSColor { contrast ? color(Tokens.Color.rimContrast) : color(Tokens.Color.rimInner) }
     var textStart: CGFloat { Tokens.Size.iconInset + icon + Tokens.Size.iconGap }
@@ -103,7 +168,8 @@ final class RowsView: NSView {
         let p = convert(event.locationInWindow, from: nil)
         guard let i = row(at: p) else { return }
         // The chevron is a disclosure triangle: it opens or folds the row, the rest of the row switches.
-        if items[i].expandable, let onChevron, p.x >= bounds.maxX - Tokens.Size.chevronHit { onChevron(i); return }
+        let chevronZone = Tokens.Size.chevronHit + theme.rowTrailing - Tokens.Size.textInsetRight   // follows the chevron left of a stripe tail
+        if items[i].expandable, let onChevron, p.x >= bounds.maxX - chevronZone { onChevron(i); return }
         onClick?(i)
     }
     override func mouseMoved(with event: NSEvent) {
@@ -201,14 +267,7 @@ final class RowsView: NSView {
             let item = items[i]
             let isSel = i == selected
             if isSel {
-                t.selection.setFill()
-                NSBezierPath(roundedRect: row.insetBy(dx: Tokens.Size.selectionInsetX, dy: Tokens.Size.selectionInsetY),
-                             xRadius: Tokens.Radius.selection, yRadius: Tokens.Radius.selection).fill()
-                if t.noColour {   // a bar at the left edge marks the selection for people who turn colour cues off
-                    t.color(Tokens.Color.selectionText).setFill()
-                    NSBezierPath(roundedRect: NSRect(x: row.minX + 4, y: row.minY + 8, width: Tokens.Size.selectionBar, height: row.height - 16),
-                                 xRadius: 1.5, yRadius: 1.5).fill()
-                }
+                t.drawSelection(in: row, tail: true)
             } else if i == hover {
                 t.color(Tokens.Color.hover).setFill()
                 NSBezierPath(roundedRect: row.insetBy(dx: Tokens.Size.selectionInsetX, dy: Tokens.Size.selectionInsetY),
@@ -218,7 +277,7 @@ final class RowsView: NSView {
             let indent = CGFloat(item.depth) * Tokens.Size.childIndent
             let s = item.child == nil ? t.icon : Tokens.Size.childIcon
             if item.dot || (item.child?.unread ?? 0) > 0 {   // unread: a small dot before the icon, like Slack's sidebar
-                (isSel ? t.color(Tokens.Color.selectionText) : t.color(Tokens.Color.glanceLimit)).setFill()
+                (isSel ? t.color(Tokens.Color.selectionText) : t.color(Tokens.Color.unreadDot)).setFill()
                 NSBezierPath(ovalIn: NSRect(x: row.minX + indent + 2, y: row.midY - 3.5, width: 7, height: 7)).fill()
             }
             let slot = item.child == nil ? 0 : (t.icon - s) / 2   // the small icon sits in the middle of the normal icon's slot
@@ -226,7 +285,7 @@ final class RowsView: NSView {
                            from: .zero, operation: .sourceOver, fraction: item.minimized && !isSel ? 0.6 : 1)
 
             // Right side first: the capsule or the app name decide how much room the title has.
-            var rightEdge = row.maxX - Tokens.Size.textInsetRight
+            var rightEdge = row.maxX - t.rowTrailing
             if item.expandable {   // a chevron: right when folded, down when its children are on show
                 if let img = NSImage(systemSymbolName: item.expanded ? "chevron.down" : "chevron.right", accessibilityDescription: nil)?
                     .withSymbolConfiguration(.init(pointSize: 10, weight: .semibold)) {
@@ -454,6 +513,38 @@ final class HeaderView: NSView {
     override func accessibilityLabel() -> String? { "\(title), desktop \(index + 1) of \(count)" }
 }
 
+// The theme's stripes as a thin band along the panel's top edge (Full Stripe). Equal shares of the width, each edge
+// leaning like the brand stripes (28 degrees off vertical, falling from the top left). The panel's rounded corners clip it.
+final class StripeBandView: NSView {
+    let colours: [NSColor]
+
+    init(frame: NSRect, colours: [NSColor]) {
+        self.colours = colours
+        super.init(frame: frame)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func draw(_ dirty: NSRect) {
+        guard !colours.isEmpty else { return }
+        let b = bounds, share = b.width / CGFloat(colours.count)
+        let lean = b.height * tan(28 * .pi / 180)
+        for (i, c) in colours.enumerated() {
+            let left = i == 0 ? -lean : b.minX + CGFloat(i) * share - lean / 2
+            let right = i == colours.count - 1 ? b.maxX + lean : b.minX + CGFloat(i + 1) * share - lean / 2
+            let p = NSBezierPath()
+            p.move(to: NSPoint(x: left + lean, y: b.minY))
+            p.line(to: NSPoint(x: right + lean, y: b.minY))
+            p.line(to: NSPoint(x: right, y: b.maxY))
+            p.line(to: NSPoint(x: left, y: b.maxY))
+            p.close()
+            c.setFill()
+            p.fill()
+        }
+    }
+
+    override func isAccessibilityElement() -> Bool { false }   // decoration only
+}
+
 // The rounded, blurred (or solid) surface holding the glance bar (when on), the header and the rows.
 final class SwitcherView: NSView {
     let theme: Theme
@@ -494,9 +585,11 @@ final class SwitcherView: NSView {
         let barH = glance == nil ? 0 : density.height + Tokens.Size.separator
         let glanceH = glance == nil ? 0 : barH + (header == nil ? Tokens.Size.headerGap : 0)
         let searchH = showSearch ? theme.rowHeight + Tokens.Size.headerGap : 0
-        let fit = max(1, Int((area.height * 0.85 - 2 * pad - headerH - glanceH - searchH) / theme.rowHeight))
+        let band = theme.bandRoom   // the stripe band sits in this extra room at the very top
+        let top = pad + band        // from the top edge to the first thing drawn under the band
+        let fit = max(1, Int((area.height * 0.85 - 2 * pad - band - headerH - glanceH - searchH) / theme.rowHeight))
         fitRows = fit
-        aboveRows = headerH + glanceH + searchH
+        aboveRows = band + headerH + glanceH + searchH
         let visible = min(items.count, min(fit, Int(Tokens.Size.maxVisibleRows)))
         let footerH = items.count > visible || keyHint ? Tokens.Size.footerHeight : 0
 
@@ -512,6 +605,7 @@ final class SwitcherView: NSView {
                 let right = item.child?.detail ?? item.appName
                 let appW = item.minimized ? 70 : (right as NSString).size(withAttributes: [.font: Tokens.Font.appName]).width
                 return theme.textStart + CGFloat(item.depth) * Tokens.Size.childIndent + titleW + 16 + appW + column
+                    + theme.rowTrailing - Tokens.Size.textInsetRight
             }.max() ?? 0
             w = floor(min(maxW, max(Tokens.Size.panelMinWidth, longest + Tokens.Size.panelWidthExtra)))
         }
@@ -543,6 +637,12 @@ final class SwitcherView: NSView {
             tint.autoresizingMask = [.width, .height]
             addSubview(tint)
         }
+        if band > 0 {
+            let strip = StripeBandView(frame: NSRect(x: 0, y: h - Tokens.Size.stripeBand, width: w, height: Tokens.Size.stripeBand),
+                                       colours: theme.palette.stripes.map { $0(theme.dark) })
+            strip.autoresizingMask = [.width, .minYMargin]
+            addSubview(strip)
+        }
         addSubview(rows)
         if showSearch {
             let row = SearchRowView(frame: NSRect(x: pad, y: pad + rowsH + Tokens.Size.headerGap, width: w - 2 * pad, height: theme.rowHeight), theme: theme)
@@ -551,20 +651,20 @@ final class SwitcherView: NSView {
             searchRow = row
         }
         if let glance {
-            let bar = GlanceBarView(frame: NSRect(x: pad, y: h - pad - density.height, width: w - 2 * pad, height: density.height),
+            let bar = GlanceBarView(frame: NSRect(x: pad, y: h - top - density.height, width: w - 2 * pad, height: density.height),
                                     readings: glance, density: density, theme: theme)
             bar.autoresizingMask = [.minYMargin]
             addSubview(bar)
             glanceBar = bar
             glanceReadings = bar.readings
-            let sep = NSView(frame: NSRect(x: pad, y: h - pad - barH, width: w - 2 * pad, height: Tokens.Size.separator))
+            let sep = NSView(frame: NSRect(x: pad, y: h - top - barH, width: w - 2 * pad, height: Tokens.Size.separator))
             sep.wantsLayer = true
             sep.layer?.backgroundColor = theme.separator.cgColor
             sep.autoresizingMask = [.minYMargin]
             addSubview(sep)
         }
         if let header {
-            let hv = HeaderView(frame: NSRect(x: pad, y: h - pad - barH - Tokens.Size.headerHeight, width: w - 2 * pad, height: Tokens.Size.headerHeight),
+            let hv = HeaderView(frame: NSRect(x: pad, y: h - top - barH - Tokens.Size.headerHeight, width: w - 2 * pad, height: Tokens.Size.headerHeight),
                                 title: header.title, index: header.index, count: header.count, theme: theme,
                                 showHint: Settings.hintShows < Tokens.Copy.hintShows)
             hv.autoresizingMask = [.minYMargin]

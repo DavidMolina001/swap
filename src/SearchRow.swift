@@ -61,7 +61,7 @@ final class SearchRowView: NSView {
     private func layoutField() {
         guard let field else { return }
         let x = theme.textStart - 2   // a text field insets its text by 2 pt; this lines it up with the row titles
-        let right = bounds.width - Tokens.Size.textInsetRight - (hint.isEmpty ? 0 : hintWidth() + 12)
+        let right = bounds.width - theme.rowTrailing - (hint.isEmpty ? 0 : hintWidth() + 12)
         let h = ceil(theme.titleFont.boundingRectForFont.height)
         field.frame = NSRect(x: x, y: floor((bounds.height - h) / 2), width: max(40, right - x), height: h)
     }
@@ -70,16 +70,7 @@ final class SearchRowView: NSView {
         let t = theme
         let row = bounds
         let selected = state == .selected
-        if selected {
-            t.selection.setFill()
-            NSBezierPath(roundedRect: row.insetBy(dx: Tokens.Size.selectionInsetX, dy: Tokens.Size.selectionInsetY),
-                         xRadius: Tokens.Radius.selection, yRadius: Tokens.Radius.selection).fill()
-            if t.noColour {
-                t.color(Tokens.Color.selectionText).setFill()
-                NSBezierPath(roundedRect: NSRect(x: row.minX + 4, y: row.minY + 8, width: Tokens.Size.selectionBar, height: row.height - 16),
-                             xRadius: 1.5, yRadius: 1.5).fill()
-            }
-        }
+        if selected { t.drawSelection(in: row, tail: false) }   // no stripe tail here: the hint sits at the right end
         let s = Tokens.Size.searchGlyph
         if let glass = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)?
             .withSymbolConfiguration(.init(pointSize: s, weight: .regular)) {
@@ -101,7 +92,7 @@ final class SearchRowView: NSView {
         if !line.isEmpty {
             let attrs: [NSAttributedString.Key: Any] = [.font: Tokens.Font.hint, .foregroundColor: selected ? t.color(Tokens.Color.selectionSub) : t.color(note == nil ? Tokens.Color.tertiary : Tokens.Color.label)]
             let width = (line as NSString).size(withAttributes: attrs).width
-            (line as NSString).draw(at: NSPoint(x: row.maxX - Tokens.Size.textInsetRight - width, y: row.midY - 7), withAttributes: attrs)
+            (line as NSString).draw(at: NSPoint(x: row.maxX - t.rowTrailing - width, y: row.midY - 7), withAttributes: attrs)
         }
     }
 

@@ -13,7 +13,7 @@ namespace Swap
 
     public static class Tokens
     {
-        public const string Version = "0.8.0";
+        public const string Version = "0.9.0";
 
         // The Windows accent colour (set by the app at start-up from UISettings or DwmGetColorizationColor).
         public static Color AccentBase = Color.FromArgb(0, 120, 215);
@@ -37,6 +37,7 @@ namespace Swap
         public static Shade DotInactive { get { return new Shade(Color.FromArgb(76, 255, 255, 255), Color.FromArgb(76, 0, 0, 0)); } }
         public static Shade Chevron { get { return new Shade(Color.FromArgb(102, 255, 255, 255), Color.FromArgb(102, 0, 0, 0)); } }
         public static Shade ChevronEnd { get { return new Shade(Color.FromArgb(38, 255, 255, 255), Color.FromArgb(38, 0, 0, 0)); } }
+        public static Shade UnreadDot { get { return new Shade(Color.FromArgb(255, 255, 69, 58), Color.FromArgb(255, 255, 59, 48)); } }
         public static Shade GlanceWarning { get { return new Shade(Color.FromArgb(255, 255, 159, 10), Color.FromArgb(255, 255, 149, 0)); } }
         public static Shade GlanceLimit { get { return new Shade(Color.FromArgb(255, 255, 69, 58), Color.FromArgb(255, 255, 59, 48)); } }
         public static Shade GlanceTrack { get { return new Shade(Color.FromArgb(31, 255, 255, 255), Color.FromArgb(20, 0, 0, 0)); } }
@@ -69,6 +70,11 @@ namespace Swap
         public const float SelectionInsetX = 0.0f;
         public const float SelectionInsetY = 1.0f;
         public const float SelectionBar = 3.0f;
+        public const float StripeBand = 5.0f;
+        public const float StripeBandGap = 3.0f;
+        public const float StripeTail = 5.0f;
+        public const float StripeTailSlant = 9.0f;
+        public const float StripeTailReserve = 38.0f;
         public const float MaxVisibleRows = 14.0f;
         public const float FadeHeight = 24.0f;
         public const float FooterHeight = 20.0f;

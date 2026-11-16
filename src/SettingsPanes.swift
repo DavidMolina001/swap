@@ -434,12 +434,76 @@ private struct PinsSection: View {
 
 // MARK: - Appearance
 
+// The colour themes as a grid of swatches: each one its stripes and its name, the current one marked with a tick.
+// Picking one plays it in the preview above, then the preview rests on your list in that theme.
+private struct ThemePicker: View {
+    let current: String
+    let pick: (String) -> Void
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 10)], spacing: 10) {
+            ForEach(Tokens.Themes.all, id: \.id) { palette in
+                ThemeSwatch(palette: palette, chosen: palette.id == current) { pick(palette.id) }
+            }
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Theme")
+    }
+}
+
+private struct ThemeSwatch: View {
+    let palette: Palette
+    let chosen: Bool
+    let action: () -> Void
+
+    var body: some View {
+        let dark = Settings.isDark   // the stripes as the list draws them, which can differ from the window's look
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 0) {
+                    ForEach(Array(palette.stripes.enumerated()), id: \.offset) { _, stripe in
+                        Rectangle().fill(Color(nsColor: stripe(dark)))
+                    }
+                }
+                .frame(height: 16)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
+                HStack(spacing: 4) {
+                    Text(palette.name).lineLimit(1)
+                    Spacer(minLength: 0)
+                    if chosen { Image(systemName: "checkmark.circle.fill").foregroundColor(.accentColor) }
+                }
+            }
+            .padding(8)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(chosen ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.04)))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(chosen ? Color.accentColor : Color.primary.opacity(0.1), lineWidth: chosen ? 2 : 1))
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(palette.id == Tokens.Themes.defaultID ? "\(palette.name), the default" : palette.name)
+        .accessibilityAddTraits(chosen ? [.isSelected] : [])
+    }
+}
+
 struct AppearancePane: View {
     @ObservedObject private var model = SettingsModel.shared
     @StateObject private var preview = PanelPreview()
 
     var body: some View {
         PreviewedForm(preview: preview) {
+            Section {
+                ThemePicker(current: Settings.theme, pick: preview.mark("theme") { Settings.theme = $0 })
+                    .plays("theme", on: preview)
+            } header: {
+                Text("Theme")
+            } footer: {
+                Text("Colours for the selected row, unread dots and Glance bar tiles. System uses your Mac's accent colour.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
             Section("List") {
                 PickerRow(title: "Appearance",
                           selection: setting(Settings.appearance, preview.mark("appearance") { Settings.appearance = $0 }),
