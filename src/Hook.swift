@@ -132,7 +132,8 @@ enum Hook {
                 "panelFrame": p.isVisible ? ["x": p.frame.minX, "y": p.frame.minY, "w": p.frame.width, "h": p.frame.height] : NSNull(),
                 "rows": (p.switcher?.rows.items ?? []).map { ["app": $0.appName, "title": $0.title, "minimised": $0.minimized,
                                                                "depth": $0.depth, "expandable": $0.expandable, "expanded": $0.expanded,
-                                                               "workspace": $0.workspace ?? NSNull(), "pinned": $0.pinned, "opens": $0.opens?.path ?? NSNull()] },
+                                                               "workspace": $0.workspace ?? NSNull(), "pinned": $0.pinned, "opens": $0.opens?.path ?? NSNull(),
+                                                               "isSelf": $0.isSelf] },
                 "search": ["row": p.switcher?.searchRow != nil, "onRow": c.search.onRow, "typing": c.search.typing, "query": c.search.query,
                            "panelKey": p.isKeyWindow, "swapActive": NSRunningApplication.current.isActive,
                            "focusedApp": SelfTest.focusedApp(), "field": p.switcher?.searchRow?.field?.stringValue ?? NSNull(),
@@ -150,7 +151,9 @@ enum Hook {
                              "showMinimised": Settings.showMinimised, "showHidden": Settings.showHidden, "showAppName": Settings.showAppName,
                              "hiddenApps": Settings.hiddenApps, "hideUntitled": Settings.hideUntitled,
                              "drillIn": Settings.drillIn, "childOrder": Settings.childOrder == .recent ? "recent" : "natural",
-                             "slackWorkspaces": Settings.slackWorkspaces, "slackHidden": Settings.slackHidden, "pins": Settings.pins],
+                             "slackWorkspaces": Settings.slackWorkspaces, "slackHidden": Settings.slackHidden, "pins": Settings.pins,
+                             "showInDock": Settings.showInDock, "showSelfInList": Settings.showSelfInList],
+                "dockIcon": NSApp.activationPolicy() == .regular, "swapMenuOpens": SwapMenu.opens, "swapMenuDryRun": SwapMenu.dryRun,
             ]
         }
     }
@@ -294,6 +297,9 @@ enum Hook {
         case "showlist":   // open the list from the "menu", pinned until Esc or a pick
             onMain { Controller.shared.showFromMenu() }
             return "ok showlist"
+        case "menudry":   // menudry <on|off>: picking Swap's own row only counts (state: swapMenuOpens) instead of showing the menu
+            onMain { SwapMenu.dryRun = arg == "on" }
+            return "ok menudry \(arg == "on" ? "on" : "off")"
         case "set":   // set <key> <value>: write one setting (bool, int or string) as Settings… would
             let a = arg.split(separator: " ", maxSplits: 1).map(String.init)
             guard a.count == 2 else { return "error: set <key> <value>" }

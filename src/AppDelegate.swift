@@ -1,4 +1,4 @@
-// Start-up, permissions and the menu bar item.
+// Start-up, permissions, the menu bar item and the Dock icon.
 import AppKit
 import ApplicationServices
 import ServiceManagement
@@ -17,6 +17,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var densityItems: [Glance.Density: NSMenuItem] = [:]
     private var widgetsMenu: NSMenu!
     private var animationsItem: NSMenuItem!
+    private var dockItem: NSMenuItem!
+    private var selfRowItem: NSMenuItem!
     private var timerItem: NSMenuItem!
     private var timerStopItem: NSMenuItem!
     private var poll: Timer?
@@ -42,7 +44,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         buildMenu()
-        NotificationCenter.default.addObserver(forName: Settings.changed, object: nil, queue: .main) { [weak self] _ in self?.refreshMenu() }
+        buildMainMenu()
+        applyDockIcon()   // after launch, so becoming a Dock app never brings Swap to the front
+        NotificationCenter.default.addObserver(forName: Settings.changed, object: nil, queue: .main) { [weak self] _ in
+            self?.refreshMenu()
+            self?.applyDockIcon()
+        }
         NotificationCenter.default.addObserver(forName: GlanceTimer.changed, object: nil, queue: .main) { [weak self] _ in self?.refreshTimerMenu() }
         NotificationCenter.default.addObserver(forName: GlanceTimer.fired, object: nil, queue: .main) { [weak self] _ in self?.timerFired() }
         startTapWhenTrusted()
@@ -170,6 +177,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         animationsItem = NSMenuItem(title: "Animations", action: #selector(toggleAnimations), keyEquivalent: "")
         animationsItem.target = self
         sub.addItem(animationsItem)
+        // Swap itself: the same two switches as Settings > Appearance > Swap itself.
+        sub.addItem(.separator())
+        dockItem = NSMenuItem(title: "Show in the Dock", action: #selector(toggleDock), keyEquivalent: "")
+        dockItem.target = self
+        sub.addItem(dockItem)
+        selfRowItem = NSMenuItem(title: "Show Swap at the bottom of the list", action: #selector(toggleSelfRow), keyEquivalent: "")
+        selfRowItem.target = self
+        sub.addItem(selfRowItem)
         personal.submenu = sub
         menu.addItem(personal)
 
@@ -194,6 +209,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         glanceBarItem.state = Settings.glanceBar ? .on : .off
         for (dn, i) in densityItems { i.state = Settings.glanceDensity == dn ? .on : .off }
         animationsItem.state = Settings.animations ? .on : .off
+        dockItem.state = Settings.showInDock ? .on : .off
+        selfRowItem.state = Settings.showSelfInList ? .on : .off
         rebuildWidgetsMenu()
         refreshTimerMenu()
     }
@@ -229,6 +246,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     @objc private func toggleGlanceBar() { Settings.glanceBar.toggle() }
     @objc private func toggleAnimations() { Settings.animations.toggle() }
+    @objc private func toggleDock() { Settings.showInDock.toggle() }
+    @objc private func toggleSelfRow() { Settings.showSelfInList.toggle() }
     @objc private func pickDensity(_ sender: NSMenuItem) {
         if let raw = sender.representedObject as? String, let dn = Glance.Density(rawValue: raw) { Settings.glanceDensity = dn }
     }
@@ -421,6 +440,103 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     #if SELFTEST
     func rebuildTapForTest() { takeDownTap(); _ = installTap() }
     #endif
+
+    // MARK: Dock icon and the menu away from the menu bar
+
+    // The menu bar item's menu, for SwapMenu.
+    fileprivate var itemMenu: NSMenu? { statusItem?.menu }
+    fileprivate func refreshForShow() { refreshMenu() }
+
+    // A Dock icon while showInDock is on (a regular app), the menu bar only while it is off (an accessory app, as
+    // Info.plist starts it). Applied at once whenever the setting changes. Becoming a Dock app does not bring Swap to
+    // the front. Going back to the menu bar only can leave an open Settings window behind other apps, so it is brought
+    // back when Swap was the app in front.
+    private func applyDockIcon() {
+        let want: NSApplication.ActivationPolicy = Settings.showInDock ? .regular : .accessory
+        guard NSApp.activationPolicy() != want else { return }
+        let wasActive = NSApp.isActive
+        guard NSApp.setActivationPolicy(want) else { return }
+        guard want == .accessory, wasActive else { return }
+        DispatchQueue.main.async {
+            let open = NSApp.windows.filter { $0.isVisible && !($0 is SwitcherPanel) && $0.canBecomeKey }
+            guard !open.isEmpty else { return }
+            NSApp.activate(ignoringOtherApps: true)
+            open.forEach { $0.makeKeyAndOrderFront(nil) }
+        }
+    }
+
+    // The bar at the top of the screen while Swap is the app in front (a Dock click, Settings). Only the app menu,
+    // nothing more. Its keys could reach it while the search field has the keyboard, so they do nothing while the list
+    // is open: Command+Q in search must never quit Swap.
+    private func buildMainMenu() {
+        let main = NSMenu()
+        let appItem = NSMenuItem(title: "Swap", action: nil, keyEquivalent: "")
+        let appMenu = NSMenu(title: "Swap")
+        let about = NSMenuItem(title: "About Swap", action: #selector(mainMenuAbout), keyEquivalent: "")
+        about.target = self
+        appMenu.addItem(about)
+        appMenu.addItem(.separator())
+        let settings = NSMenuItem(title: "Settings…", action: #selector(mainMenuSettings), keyEquivalent: ",")
+        settings.target = self
+        appMenu.addItem(settings)
+        appMenu.addItem(.separator())
+        let quit = NSMenuItem(title: "Quit Swap", action: #selector(mainMenuQuit), keyEquivalent: "q")
+        quit.target = self
+        appMenu.addItem(quit)
+        appItem.submenu = appMenu
+        main.addItem(appItem)
+        NSApp.mainMenu = main
+    }
+    @objc private func mainMenuAbout() { if !Controller.shared.isActive { openAbout() } }
+    @objc private func mainMenuSettings() { if !Controller.shared.isActive { openSettings() } }
+    @objc private func mainMenuQuit() { if !Controller.shared.isActive { NSApp.terminate(nil) } }
+
+    // A click on the Dock icon (or opening Swap again while it runs): Swap's menu, at the pointer.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        SwapMenu.open(at: NSEvent.mouseLocation)
+        return false
+    }
+
+    // Right-click on the Dock icon: the same items as the menu bar menu. The Dock adds its own Quit, so ours is left out.
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        refreshMenu()
+        guard let copy = statusItem?.menu?.copy() as? NSMenu else { return nil }
+        copy.delegate = nil
+        for item in copy.items where item.action == #selector(NSApplication.terminate(_:)) { copy.removeItem(item) }
+        if copy.items.last?.isSeparatorItem == true, let last = copy.items.last { copy.removeItem(last) }
+        return copy
+    }
+}
+
+// Swap's menu away from the menu bar: from Swap's own row in the list and from the Dock icon. The same NSMenu as the
+// menu bar item, so the two never differ. NSMenu.popUp runs a tracking loop until the menu closes, so it is started on a
+// fresh turn of the main loop, never inside a key or click handler. It fails to plain: with no menu to show, Settings
+// opens instead.
+enum SwapMenu {
+    private(set) static var opens = 0   // read by the self-test: how many times the menu was asked for
+    #if SELFTEST
+    static var dryRun = false            // the self-test counts the decision and shows nothing, so no tracking loop blocks it
+    #endif
+
+    // `point` is a place on screen (the pointer, for the Dock); nil puts the menu in the middle of `screen`.
+    static func open(at point: NSPoint? = nil, on screen: NSScreen? = nil) {
+        opens += 1
+        #if SELFTEST
+        if dryRun { return }
+        #endif
+        DispatchQueue.main.async {
+            let app = NSApp.delegate as? AppDelegate
+            guard let menu = app?.itemMenu else { SettingsWindowController.shared.show(); return }
+            app?.refreshForShow()
+            var at = point
+            if at == nil, let area = (screen ?? NSScreen.main ?? NSScreen.screens.first)?.visibleFrame {
+                let size = menu.size
+                at = NSPoint(x: area.midX - size.width / 2, y: area.midY + size.height / 2)   // the top left corner
+            }
+            guard let at else { SettingsWindowController.shared.show(); return }
+            menu.popUp(positioning: nil, at: at, in: nil)
+        }
+    }
 }
 
 extension AppDelegate: NSMenuDelegate {

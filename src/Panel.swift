@@ -250,7 +250,7 @@ final class RowsView: NSView {
                 rightEdge -= w + 16
             } else if item.minimized {
                 rightEdge = drawCapsule(rightOf: rightEdge, midY: row.midY, selected: isSel) - 10
-            } else if Settings.showAppName || item.opens != nil, !sameAsApp(item), let d = item.desktop ?? (Settings.showAppName ? nil : nil) ?? Optional(item.appName) {
+            } else if Settings.showAppName || item.opens != nil || item.isSelf, !sameAsApp(item), let d = item.desktop ?? (Settings.showAppName ? nil : nil) ?? Optional(item.appName) {
                 let text = (item.desktop ?? item.profile).map { "\(item.appName) · \($0)" } ?? d
                 let colour = isSel ? t.color(Tokens.Color.selectionSub) : t.color(Tokens.Color.secondary)
                 let attrs: [NSAttributedString.Key: Any] = [.font: Tokens.Font.appName, .foregroundColor: colour, .paragraphStyle: para(.right)]
@@ -811,7 +811,7 @@ enum KeyHint {
         var keys: [String] = []
         if let kid = item.child { keys.append(kid.isGroup ? c.keyReturnExpand : c.keyReturnOpen) }
         else if item.expandable { keys.append(item.expanded ? c.keyFold : c.keyReturnExpand) }
-        else if Verbs.kind(of: item) == .found { keys.append(c.keyReturnOpen) }
+        else if Verbs.kind(of: item) == .found || Verbs.kind(of: item) == .menu { keys.append(c.keyReturnOpen) }
         else { keys.append(c.keyReturnSwitch) }
         if Settings.actionKeys {   // the same table the keys themselves go through, so a row never promises what it refuses
             if Verbs.allows(.close, on: item) { keys.append(c.keyClose) }

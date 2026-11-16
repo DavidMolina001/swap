@@ -282,7 +282,7 @@ struct ListPane: View {
 
     private func refresh() {
         running = NSWorkspace.shared.runningApplications
-            .filter { $0.activationPolicy == .regular && $0.bundleIdentifier != nil }
+            .filter { $0.activationPolicy == .regular && $0.bundleIdentifier != nil && $0 != NSRunningApplication.current }   // Swap itself has a Dock icon now
             .sorted { ($0.localizedName ?? "").localizedCaseInsensitiveCompare($1.localizedName ?? "") == .orderedAscending }
     }
 
@@ -470,6 +470,12 @@ struct AppearancePane: View {
                           isOn: setting(Settings.hideEmptyDesktops, preview.mark("hideEmpty") { Settings.hideEmptyDesktops = $0 }))
                     .disabled(Settings.desktops == .flat)
                     .plays("hideEmpty", on: preview)
+            }
+            Section("Swap itself") {
+                SwitchRow(title: "Show in the Dock", help: "Click the Dock icon to open Swap's menu. Off: Swap is in the menu bar only.",
+                          isOn: setting(Settings.showInDock) { Settings.showInDock = $0 })
+                SwitchRow(title: "Show Swap at the bottom of the list", help: "A last row for Swap. Pick it to open Swap's menu.",
+                          isOn: setting(Settings.showSelfInList) { Settings.showSelfInList = $0 })
             }
         }
     }

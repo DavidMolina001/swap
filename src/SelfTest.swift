@@ -283,7 +283,8 @@ enum SelfTest {
         then(0.8) {
             let p = Controller.shared.panel
             check("panel appears while Option is held", p.isVisible)
-            check("panel shows every window", p.switcher?.count == min(list.count, Controller.maxItems), "\(p.switcher?.count ?? -1) rows")
+            let selfRow = Settings.showSelfInList ? 1 : 0   // Swap's own row, last
+            check("panel shows every window", p.switcher?.count == min(list.count, Controller.maxItems) + selfRow, "\(p.switcher?.count ?? -1) rows")
             check("two Tabs select the third window", Controller.shared.selection == 2, "sel=\(Controller.shared.selection)")
             try? "open".write(toFile: logPath + ".panel", atomically: true, encoding: .utf8)
         }
@@ -1071,6 +1072,162 @@ enum SelfTest {
             key(53); flags(option: false)
             Settings.searchRow = searchRowWas
         }
+
+        // 12b. Swap's own row: last on the page of the desktop you are on, passed over by the first Tab both ways, opens
+        //      Swap's menu when picked (Return, release, click, a number), refuses W, Q and P. Picking it only counts here
+        //      (SwapMenu.dryRun): a real menu runs a tracking loop that would hold up every step after it.
+        var selfWas = true, dockWas = true, menuOpens = 0
+        func isLastSelf(_ rows: [WindowItem]) -> Bool { rows.last?.isSelf == true && rows.filter({ $0.isSelf }).count == 1 }
+        func toSelfRow() {   // Tab from the current row until the selection is on Swap's row
+            let rows = rowsNow()
+            guard isLastSelf(rows) else { return }
+            for _ in 0..<max(0, rows.count - 1 - Controller.shared.selection) { tab() }
+        }
+        then(0.6) {
+            selfWas = Settings.showSelfInList; dockWas = Settings.showInDock
+            Settings.showSelfInList = true
+            SwapMenu.dryRun = true
+            menuOpens = SwapMenu.opens
+            if let t = Windows.list().first(where: { $0.title == "Swap test Three.txt" }) { userFocus(t) }
+        }
+        then(1.0) { flags(option: true); tab() }
+        then(0.7) {
+            let c = Controller.shared, rows = rowsNow()
+            check("Swap row: listed once, as the last row", isLastSelf(rows), rows.map { $0.isSelf ? "[Swap]" : $0.title }.joined(separator: ", "))
+            check("Swap row: Swap's name, no app or window behind it, Menu on the right",
+                  rows.last.map { $0.title == "Swap" && $0.appName == "Menu" && $0.app == nil && $0.window == nil } ?? false)
+            check("Swap row: the first Tab lands on a window, not on it", c.selectedItem?.isSelf == false, "sel=\(c.selection)")
+            check("Swap row: not part of the window list itself (recency, quick flip, search)", !Windows.list().contains { $0.isSelf })
+            check("Swap row: opening the list does not bring Swap to the front", !NSRunningApplication.current.isActive)
+            toSelfRow()
+        }
+        then(0.4) {
+            let c = Controller.shared
+            check("Swap row: Tab reaches it after the last window", c.selectedItem?.isSelf == true && c.selection == rowsNow().count - 1,
+                  "sel=\(c.selection) of \(rowsNow().count)")
+            tab()
+        }
+        then(0.3) {
+            check("Swap row: Tab on it wraps round to the first row", Controller.shared.selection == 0, "sel=\(Controller.shared.selection)")
+            tab(shift: true)
+        }
+        then(0.3) {
+            check("Swap row: Shift+Tab from the first row goes back to it", Controller.shared.selectedItem?.isSelf == true, "sel=\(Controller.shared.selection)")
+            key(13)   // W
+        }
+        then(0.3) {
+            let c = Controller.shared
+            check("Swap row: W does nothing and says so", c.isActive && c.selectedItem?.isSelf == true && c.lastRefusal == Verbs.menuRow, c.lastRefusal)
+            key(12)   // Q
+        }
+        then(0.3) {
+            let c = Controller.shared
+            check("Swap row: Q does nothing and says so", c.isActive && c.selectedItem?.isSelf == true && c.lastRefusal == Verbs.menuRow, c.lastRefusal)
+            key(35)   // P
+        }
+        then(0.3) {
+            let c = Controller.shared
+            check("Swap row: P does not pin it and says so", c.isActive && c.lastRefusal == Verbs.menuRow && rowsNow().last?.pinned == false, c.lastRefusal)
+            check("Swap row: none of those opened the menu", SwapMenu.opens == menuOpens, "\(SwapMenu.opens - menuOpens)")
+            key(36)   // Return
+        }
+        then(0.5) {
+            let c = Controller.shared
+            check("Swap row: Return closes the list and opens Swap's menu", !c.isActive && !c.panel.isVisible && SwapMenu.opens == menuOpens + 1,
+                  "opens=\(SwapMenu.opens - menuOpens)")
+            flags(option: false)
+        }
+        // Release on it.
+        then(0.6) { flags(option: true); tab() }
+        then(0.7) { toSelfRow() }
+        then(0.4) { check("Swap row: selected before the release", Controller.shared.selectedItem?.isSelf == true); flags(option: false) }
+        then(0.5) {
+            check("Swap row: releasing Option on it opens Swap's menu", !Controller.shared.isActive && SwapMenu.opens == menuOpens + 2,
+                  "opens=\(SwapMenu.opens - menuOpens)")
+        }
+        // A click on it.
+        then(0.5) { flags(option: true); tab() }
+        then(0.7) {
+            guard let rows = Controller.shared.panel.switcher?.rows, let row = rows.rowRect(rows.items.count - 1), let win = rows.window,
+                  rows.items.last?.isSelf == true else { check("Swap row: on screen to click", false); key(53); flags(option: false); return }
+            let r = win.convertToScreen(rows.convert(row, to: nil))
+            click(at: CGPoint(x: r.midX, y: NSScreen.screens[0].frame.height - r.midY))   // Quartz points start at the top left
+        }
+        then(0.6) {
+            check("Swap row: a click on it opens Swap's menu", !Controller.shared.isActive && SwapMenu.opens == menuOpens + 3,
+                  "opens=\(SwapMenu.opens - menuOpens)")
+            flags(option: false)
+        }
+        // Its number.
+        let digit: [Int: CGKeyCode] = [1: 18, 2: 19, 3: 20, 4: 21, 5: 23, 6: 22, 7: 26, 8: 28, 9: 25]
+        var numbered = false
+        then(0.5) { flags(option: true); tab() }
+        then(0.7) {
+            let n = rowsNow().count
+            if Settings.numberKeys, isLastSelf(rowsNow()), let code = digit[n] { numbered = true; key(code) }
+            else { log("SKIP  Swap row by number: it is row \(n), past 9"); key(53) }
+        }
+        then(0.5) {
+            if numbered {
+                check("Swap row: its number key opens Swap's menu", !Controller.shared.isActive && SwapMenu.opens == menuOpens + 4,
+                      "opens=\(SwapMenu.opens - menuOpens)")
+            }
+            flags(option: false)
+            menuOpens = SwapMenu.opens
+            before = front()
+        }
+        // A quick flip, either way round, never lands on it.
+        then(0.6) { flags(option: true); tab(); flags(option: false) }
+        then(1.0) {
+            check("Swap row: a quick Option+Tab goes to a window, never to Swap's row",
+                  front() != before && SwapMenu.opens == menuOpens && !Controller.shared.isActive, "front=\(front()) opens=\(SwapMenu.opens - menuOpens)")
+            before = front()
+            flags(option: true, shift: true); tab(shift: true); flags(option: false)
+        }
+        then(1.0) {
+            check("Swap row: a quick Option+Shift+Tab goes to a window too",
+                  front() != before && SwapMenu.opens == menuOpens && !Controller.shared.isActive, "front=\(front()) opens=\(SwapMenu.opens - menuOpens)")
+            Scene.current = ([Windows.Page(title: "", items: [])], 0)   // nothing open at all
+        }
+        // Nothing else open: a quick flip does nothing; held, the list shows Swap's row alone and a release opens the menu.
+        then(0.3) { flags(option: true); tab(); flags(option: false) }
+        then(0.6) {
+            check("Swap row alone: a quick Option+Tab does nothing", !Controller.shared.isActive && SwapMenu.opens == menuOpens,
+                  "opens=\(SwapMenu.opens - menuOpens)")
+            flags(option: true); tab()
+        }
+        then(0.7) {
+            let rows = rowsNow()
+            check("Swap row alone: holding Option shows the list with just Swap's row, selected",
+                  Controller.shared.panel.isVisible && rows.count == 1 && rows[0].isSelf && Controller.shared.selection == 0, "\(rows.count) rows")
+            flags(option: false)
+        }
+        then(0.5) {
+            check("Swap row alone: releasing opens Swap's menu", !Controller.shared.isActive && SwapMenu.opens == menuOpens + 1,
+                  "opens=\(SwapMenu.opens - menuOpens)")
+            Scene.current = nil
+            Settings.showSelfInList = false
+        }
+        // The setting off: no row.
+        then(0.5) { flags(option: true); tab() }
+        then(0.7) {
+            check("showSelfInList off: no Swap row", Controller.shared.isActive && !rowsNow().isEmpty && !rowsNow().contains { $0.isSelf }, "\(rowsNow().count) rows")
+            key(53); flags(option: false)
+            Settings.showSelfInList = selfWas
+            SwapMenu.dryRun = false
+            Settings.showInDock = true
+        }
+        // The Dock icon follows its setting at once, both ways, without bringing Swap to the front.
+        then(0.5) {
+            check("showInDock on: Swap is a Dock app", NSApp.activationPolicy() == .regular)
+            check("showInDock on: Swap did not come to the front", !NSRunningApplication.current.isActive)
+            Settings.showInDock = false
+        }
+        then(0.5) {
+            check("showInDock off: menu bar only again", NSApp.activationPolicy() == .accessory)
+            Settings.showInDock = dockWas
+        }
+        then(0.5) { check("showInDock: back to how it was", NSApp.activationPolicy() == (dockWas ? .regular : .accessory)) }
 
         // The tap can come down and go back up (what happens when Accessibility is switched off and on).
         then(0.3) { (NSApp.delegate as? AppDelegate)?.rebuildTapForTest(); before = front() }
