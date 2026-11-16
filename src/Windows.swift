@@ -31,10 +31,22 @@ struct WindowItem {
     var pinned = false            // a child row the user pinned (P): listed first, with a pin
     var dot = false               // something unread inside this app
     var opens: URL? = nil         // a search result that is a file or an app: NSWorkspace opens it
-    var key: String { child.map { "c\(parentKey ?? "")/\($0.id)" } ?? (workspace.map { "w\(id)#\($0)" } ?? "w\(id)") }
+    var isSelf = false            // Swap's own row, last on the current desktop's page: picking it opens Swap's menu
+    var key: String {
+        if isSelf { return "swap" }
+        return child.map { "c\(parentKey ?? "")/\($0.id)" } ?? (workspace.map { "w\(id)#\($0)" } ?? "w\(id)")
+    }
 
     // Text shown in the row: the window title, or the app name when the window has none.
     var label: String { title.trimmingCharacters(in: .whitespaces).isEmpty ? appName : title }
+
+    // Swap's own row. It has no app and no window, so nothing that acts on windows can reach Swap through it.
+    static func swapRow() -> WindowItem {
+        var row = WindowItem(app: nil, window: nil, id: 0, title: "Swap", appName: "Menu",
+                             icon: NSApp.applicationIconImage ?? NSImage(named: NSImage.applicationIconName) ?? NSImage(), minimized: false)
+        row.isSelf = true
+        return row
+    }
 }
 
 private func axValue(_ el: AXUIElement, _ attr: String) -> CFTypeRef? {

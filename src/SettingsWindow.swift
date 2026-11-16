@@ -59,7 +59,7 @@ final class SettingsModel: ObservableObject {
     }
 }
 
-// Swap is a menu bar app with no main menu, so nothing else answers Command + W.
+// Swap's main menu has only the app menu (no Window menu), so nothing else answers Command + W.
 private final class SettingsNSWindow: NSWindow {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command, event.charactersIgnoringModifiers == "w" {

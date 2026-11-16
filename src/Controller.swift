@@ -291,7 +291,7 @@ final class Controller {
         guard loaded else { return }
         if !shown, verb != .command { showPanel() }
         guard let item = selectedItem else { return }
-        guard Verbs.allows(verb, on: item) else { refuse(Verbs.refusal(verb)); return }
+        guard Verbs.allows(verb, on: item) else { refuse(Verbs.kind(of: item) == .menu ? Verbs.menuRow : Verbs.refusal(verb)); return }
         switch verb {
         case .close: closeRow(item)
         case .quit: quitRow(item)
@@ -347,7 +347,7 @@ final class Controller {
         let gen = generation
         load(gen) { [self] in
             dress()
-            if items.indices.contains(1) { sel = 1 }
+            if items.indices.contains(1), !items[1].isSelf { sel = 1 }
             showPanel()
         }
     }
@@ -372,7 +372,9 @@ final class Controller {
             loaded = true
             place()
             if !pages.contains(where: { !$0.items.isEmpty }) { dress() }    // only a provider's rows can be left
-            guard pages.contains(where: { !$0.items.isEmpty }) else { reset(); return }
+            // Nothing open anywhere: with Swap's own row on, the list still opens on that one row (a quick flip ends on it
+            // and does nothing; see finish). Without it there is nothing to show, as before.
+            guard pages.contains(where: { !$0.items.isEmpty }) || items.contains(where: { $0.isSelf }) else { reset(); return }
             previousElsewhere = Windows.previousWindow(in: pages, exceptPage: currentPage, front: p.front)
             if searchWhenLoaded { searchWhenLoaded = false; commitWhenLoaded = false; openSearch(); return }
             then()
@@ -381,10 +383,16 @@ final class Controller {
 
     // Row 1 is normally the window in front, so the first Tab lands on row 2. When nothing listed
     // is in front (a dialog, the desktop, an app with only minimised windows), it lands on row 1.
+    // Swap's own row is never where the first Tab lands, either way round: one more step passes it, so a quick flip
+    // goes from window to window exactly as it does without the row.
     private func place() {
         let frontIsFirst = items.first.map { $0.id != 0 && $0.id == front } ?? false
         let offset = (!frontIsFirst && pendingSteps > 0) ? -1 : 0
-        sel = items.isEmpty ? 0 : (((pendingSteps + offset) % items.count) + items.count) % items.count
+        let n = items.count
+        sel = items.isEmpty ? 0 : (((pendingSteps + offset) % n) + n) % n
+        if items.indices.contains(sel), items[sel].isSelf, abs(pendingSteps) == 1, n > 1 {
+            sel = (((sel + pendingSteps) % n) + n) % n
+        }
     }
 
     // What providers add to the list, on the first moment it can be seen: their rows, their order and the labels last
@@ -444,7 +452,7 @@ final class Controller {
     }
 
     // The row a page opens on when you arrive at it.
-    private func arrivalRow(on page: Int, rows: [WindowItem]) -> Int { page == currentPage && rows.count > 1 ? 1 : 0 }
+    private func arrivalRow(on page: Int, rows: [WindowItem]) -> Int { page == currentPage && rows.filter({ !$0.isSelf }).count > 1 ? 1 : 0 }
 
     private func startSlide() -> PageSlide? {
         let base = pageIndex
@@ -540,6 +548,9 @@ final class Controller {
                 }
             }
         }
+        // Swap's own row, always last and only on the desktop you are on. It is not in `pages`, so recency, the quick flip,
+        // "the window you came from" and search never see it.
+        if page == currentPage, Settings.showSelfInList { rows.append(.swapRow()) }
         return rows
     }
 
@@ -876,6 +887,15 @@ final class Controller {
             item = pages[p.page].items[p.index]
         }
         if focus, let url = item?.opens { reset(); SearchSession.open(url); return }
+        // Swap's own row: the list closes and Swap's menu opens. Only when it was chosen: on the list, or with a key other
+        // than Tab. A Tab tapped before the list appeared never opens a menu out of nowhere.
+        if let mine = item, mine.isSelf {
+            let chosen = focus && (shown || steps > abs(pendingSteps))
+            let screen = panel.screen
+            reset()
+            if chosen { AppCommand.abandon(); SwapMenu.open(on: screen) }
+            return
+        }
         // Gone behind the list: say so and keep the list, rather than land somewhere else.
         if focus, shown, let gone = item, gone.child == nil, gone.id != 0, gone.window != nil, !Windows.stillThere(gone) {
             refuse(Verbs.windowGone)

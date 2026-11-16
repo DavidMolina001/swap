@@ -64,6 +64,11 @@ enum Settings {
     static var hintShows: Int { get { d.integer(forKey: "hintShows") } set { d.set(newValue, forKey: "hintShows") } }
     static var readyShown: Bool { get { bool("readyShown", false) } set { set("readyShown", newValue) } }
 
+    // Swap itself (Settings > Appearance): a Dock icon whose click opens Swap's menu, and Swap's own row at the foot of
+    // the list, which opens the same menu. Both on by default; off is the menu-bar-only Swap of 0.8.
+    static var showInDock: Bool { get { bool("showInDock", true) } set { set("showInDock", newValue) } }
+    static var showSelfInList: Bool { get { bool("showSelfInList", true) } set { set("showSelfInList", newValue) } }
+
     // Not stored by Swap: macOS keeps the login item itself.
     static var launchAtLogin: Bool {
         get { SMAppService.mainApp.status == .enabled }

@@ -31,7 +31,8 @@ Not affiliated with AltTab; written from scratch.
 2. Drag `build/Swap.app` to Applications and double-click it. Because you built it yourself, macOS shows no
    "can't verify" warning. If you got a copy from someone else and macOS refuses to open it, go to
    System Settings > Privacy & Security and click Open Anyway.
-3. Swap has no window and no Dock icon. Look for the two overlapping rectangles in the menu bar.
+3. Swap has no window. It shows a Dock icon and the two overlapping rectangles in the menu bar; you can switch the
+   Dock icon off in Settings > Appearance > Swap itself.
 4. macOS asks to let Swap control the computer with accessibility features. Click Open System Settings,
    switch **Swap** on under Privacy & Security > Accessibility, and confirm with your password or Touch ID.
    Swap needs this to see window titles, read your keystrokes and raise windows. It checks every second
@@ -102,6 +103,11 @@ Esc), **Timer** (5, 15, 25, 45 minutes, Custom, Stop; see "At a glance"), **Sett
 (quick copies of the look settings), **About Swap** and **Quit Swap**. While Accessibility is missing, a line
 at the top takes you to the right System Settings pane.
 
+Swap's Dock icon opens the same menu when you click it, and offers the same items on a right-click. The last row
+of the list on your desktop is Swap itself ("Swap", "Menu" on the right): pick it (Return, let go of Option, a
+click or its number) and the list closes and this menu opens. A quick Option + Tab never lands on it, and W, Q and
+P do nothing on it. Both can be switched off in Settings > Appearance > Swap itself.
+
 Settings has seven panes:
 
 | Pane | Settings |
@@ -110,7 +116,7 @@ Settings has seven panes:
 | Keys | Quick flip; number keys; letter keys; keep the list open until you choose; every key listed |
 | List | What is listed: minimised windows, windows of hidden apps, windows with no title, the search row; apps to leave out |
 | Inside apps | **Show tabs and chats inside apps** (off by default); order of tabs and chats; Slack: one row per workspace, which workspaces show, Clear saved chats; WhatsApp: show Archived; pins |
-| Appearance | A preview that plays a setting once when you point at it or change it, then rests on your own list. Appearance (match system, light, dark); list width (same every time, or fit the longest name); app name on the right; animations (off by default, for the fade on opening; a desktop swipe always follows your fingers unless Reduce Motion is on); one page per desktop or all desktops in one list; page dots (one per desktop, or compact: 5 at most); hide desktops with no windows |
+| Appearance | A preview that plays a setting once when you point at it or change it, then rests on your own list. Appearance (match system, light, dark); list width (same every time, or fit the longest name); app name on the right; animations (off by default, for the fade on opening; a desktop swipe always follows your fingers unless Reduce Motion is on); one page per desktop or all desktops in one list; page dots (one per desktop, or compact: 5 at most); hide desktops with no windows; Swap itself: show in the Dock, show Swap at the bottom of the list (both on by default) |
 | Glance bar | On or off; density (Compact, Regular, Detailed); Quota widget text; widgets and their order; timer presets and alert |
 | About | Version, links, releases |
 
@@ -312,7 +318,8 @@ for Accessibility.
 
 Mac source, `src/`:
 
-- `main.swift`: start-up and the command line flags. `AppDelegate.swift`: the menu and the permission check.
+- `main.swift`: start-up and the command line flags. `AppDelegate.swift`: the menu, the Dock icon (`SwapMenu` opens
+  the menu from the Dock and from Swap's own row) and the permission check.
 - `Controller.swift`: the keyboard tap (on its own thread, so a slow app never holds up typing), the session, the
   rows on show.
 - `Windows.swift`: lists windows in last-used order (focus tracking), reads the list on a background
@@ -326,7 +333,8 @@ Mac source, `src/`:
   `desktops` (pages | flat), `hideEmptyDesktops`, `pageDots` (all | compact), `panelWidth` (fixed | fit), `showMinimised`, `showHidden`,
   `showAppName`, `appearance` (system | light | dark), `hiddenApps` (bundle ids), `hideUntitled`, `animations`,
   `glanceBar`, `glanceDensity` (compact | regular | detailed), `glanceWidgets` (ordered: cpu memory gpu quota
-  network downloads timer), `quotaCell` (tightest | pill), `timerAlert`, `timerNotify`.
+  network downloads timer), `quotaCell` (tightest | pill), `timerAlert`, `timerNotify`, `showInDock` (default on),
+  `showSelfInList` (Swap's own row at the foot of the list, default on).
   Saved by the providers: `slackTeams`, `slackRecents`, `slackWorkspaceUse`.
   "Already shown" flags: `readyShown`, `glanceInvited`, `glanceDownloadsAllowed`, `searchFoldersAsked`, `hintShows`, `keyHintShows`.
 - `GlanceModel.swift`, `GlanceSamplers.swift`, `GlanceBarView.swift`: the glance bar. Readings come from

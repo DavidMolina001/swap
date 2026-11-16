@@ -28,7 +28,7 @@ struct ChildItem {
 enum Verb { case close, quit, pin, command }
 
 enum Verbs {
-    enum Kind { case window, place, tab, chat, inner, group, windowless, found }
+    enum Kind { case window, place, tab, chat, inner, group, windowless, found, menu }
 
     static let table: [Kind: Set<Verb>] = [
         .window: [.close, .quit, .command],
@@ -39,9 +39,11 @@ enum Verbs {
         .group: [.quit],
         .windowless: [.command],                // Finder with no window: N opens one
         .found: [],                             // a file or an app from search: Return opens it, nothing else applies
+        .menu: [],                              // Swap's own row: Return opens Swap's menu, nothing else applies
     ]
 
     static func kind(of item: WindowItem) -> Kind {
+        if item.isSelf { return .menu }
         if item.opens != nil || item.app == nil { return .found }
         if let kid = item.child {
             if kid.isGroup { return .group }
@@ -63,6 +65,7 @@ enum Verbs {
         }
     }
     static let notAKey = "Not a shortcut. / searches"
+    static let menuRow = "Swap's row only opens its menu"
     static let stayedOpen = "That tab stayed open"
     static let windowGone = "That window has closed"
 }
