@@ -97,6 +97,7 @@ final class GlanceBarView: NSView {
     // Width of one widget at rest: tile, gap, then the widest of value, label line and (Detailed) the level bar slot.
     static func naturalWidth(_ r: Glance.Reading, density: Glance.Density, theme: Theme) -> CGFloat {
         let m = metrics(density)
+        if let parts = r.parts, !parts.isEmpty { return ceil(partsWidth(parts, m)) }
         var text = (valueText(r, density: density) as NSString).size(withAttributes: [.font: valueFont(r, m)]).width
         if marked(r, theme: theme) { text += 2 + ("!" as NSString).size(withAttributes: [.font: markFont]).width }
         if let l = labelText(r, density: density, theme: theme) { text = max(text, l.size().width) }
@@ -140,6 +141,7 @@ final class GlanceBarView: NSView {
         let midY = bounds.midY
         for (r, x) in zip(readings, origins()) {
             let t = theme
+            if let parts = r.parts, !parts.isEmpty { drawParts(parts, at: x, midY: midY, m: m); continue }
             // Colours: identity from the tint; state recolours tile and value together.
             let stateColour: NSColor? = {
                 switch r.level {
@@ -196,6 +198,58 @@ final class GlanceBarView: NSView {
         }
     }
 
+    // MARK: the Quota cell, as Quota's own menu bar draws it: each service's logo and figures, a thin bar between
+
+    private static var logos: [String: NSImage] = [:]
+    private static func logo(_ service: String) -> NSImage? {
+        if let l = logos[service] { return l }
+        guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.quota.app"),
+              let img = NSImage(contentsOf: app.appendingPathComponent("Contents/Resources/Logos/\(service).png")) else { return nil }
+        logos[service] = img
+        return img
+    }
+    private static let partGap: CGFloat = 5, sepGap: CGFloat = 9
+    private static func partsWidth(_ parts: [Glance.QuotaPart], _ m: Metrics) -> CGFloat {
+        let logo = m.tile * 0.78
+        var w: CGFloat = 0
+        for (i, p) in parts.enumerated() {
+            if i > 0 { w += sepGap * 2 + 1 }
+            w += logo + partGap + (p.text as NSString).size(withAttributes: [.font: m.valueFont]).width
+        }
+        return w
+    }
+    private func drawParts(_ parts: [Glance.QuotaPart], at x0: CGFloat, midY: CGFloat, m: Metrics) {
+        let size = m.tile * 0.78
+        var x = x0
+        for (i, p) in parts.enumerated() {
+            if i > 0 {
+                x += GlanceBarView.sepGap
+                theme.color(Tokens.Color.separator).setFill()
+                NSRect(x: x, y: midY - m.valueLine / 2, width: 1, height: m.valueLine).fill()
+                x += 1 + GlanceBarView.sepGap
+            }
+            let box = NSRect(x: x, y: midY - size / 2, width: size, height: size)
+            if let img = GlanceBarView.logo(p.service) {
+                img.draw(in: box, from: .zero, operation: .sourceOver, fraction: p.muted ? 0.45 : 1)
+            } else {   // Quota not installed here: the service's initial in a small round tile
+                theme.color(Tokens.Color.tileQuota).setFill()
+                NSBezierPath(ovalIn: box).fill()
+                let ch = String(p.service.prefix(1)).uppercased() as NSString
+                let f = NSFont.systemFont(ofSize: size * 0.55, weight: .bold)
+                let cs = ch.size(withAttributes: [.font: f])
+                ch.draw(at: NSPoint(x: box.midX - cs.width / 2, y: box.midY - cs.height / 2), withAttributes: [.font: f, .foregroundColor: theme.color(Tokens.Color.tileGlyph)])
+            }
+            x += size + GlanceBarView.partGap
+            let colour: NSColor = p.muted ? theme.color(Tokens.Color.tertiary)
+                : p.level == .limit ? theme.color(Tokens.Color.glanceLimit)
+                : p.level == .warning ? theme.color(Tokens.Color.glanceWarning) : theme.color(Tokens.Color.label)
+            let attrs: [NSAttributedString.Key: Any] = [.font: m.valueFont, .foregroundColor: colour]
+            let t = p.text as NSString, ts = t.size(withAttributes: attrs)
+            t.draw(at: NSPoint(x: x, y: midY - ts.height / 2), withAttributes: attrs)
+            x += ts.width
+        }
+    }
+
     // White SF Symbol in the tile; GPU has none, so a chip is drawn: a card with a fan and three pins (as in the mock).
     private func drawGlyph(_ w: Glance.Widget, in tile: NSRect, size: CGFloat) {
         let white = theme.color(Tokens.Color.tileGlyph)
@@ -235,6 +289,9 @@ final class GlanceBarView: NSView {
         readings.map { r -> String in
             let v = r.value.replacingOccurrences(of: " · ", with: ", ").replacingOccurrences(of: "%", with: " percent")
                 .replacingOccurrences(of: "↓ ", with: "down ").replacingOccurrences(of: "↑ ", with: "up ")
+            if let parts = r.parts, !parts.isEmpty {
+                return "Quota " + parts.map { "\($0.service) \($0.text.replacingOccurrences(of: " · ", with: " and ").replacingOccurrences(of: "%", with: " percent"))" }.joined(separator: ", ")
+            }
             return r.widget == .timer && r.value == Tokens.Copy.timerDone ? v : "\(r.label) \(v)"
         }.joined(separator: ", ")
     }

@@ -55,6 +55,15 @@ enum Glance {
         var fraction: Double? = nil  // 0...1 for the Detailed level bar; nil = no bar (Network, Calendar)
         var level: Level = .normal
         var idle: Bool = false       // hidden from the bar (timer not running, no download in progress)
+        var parts: [QuotaPart]? = nil   // Quota only: one logo and figure per service, as Quota's own menu bar shows them
+    }
+
+    // One service in the Quota cell: "claude" and "12% · 12%". The logo comes from the installed Quota app.
+    struct QuotaPart: Equatable {
+        var service: String
+        var text: String
+        var level: Level = .normal
+        var muted = false
     }
 
     // One sampler per widget. prime() takes the baseline (first Option+Tab); read() the figure (at show, then
@@ -82,8 +91,12 @@ enum Glance {
         case .memory: return busy ? Reading(widget: w, value: "84%", label: "Memory", detail: "26.9 of 32 GB", fraction: 0.84, level: .warning)
                                   : Reading(widget: w, value: "61%", label: "Memory", detail: "19.5 of 32 GB", fraction: 0.61)
         case .gpu: return Reading(widget: w, value: "8%", label: "GPU", detail: "1.3 of 16 GB", fraction: 0.08)
-        case .quota: return busy ? Reading(widget: w, value: "86% 5h", label: "Quota", detail: "resets 14:00", fraction: 0.86, level: .warning)
-                                 : Reading(widget: w, value: "42% 5h", label: "Quota", detail: "resets 14:00", fraction: 0.42)
+        case .quota: return busy ? Reading(widget: w, value: "86% 5h", label: "Quota", detail: "resets 14:00", fraction: 0.86, level: .warning,
+                                           parts: [QuotaPart(service: "claude", text: "86% · 61%", level: .warning), QuotaPart(service: "codex", text: "12%"),
+                                                   QuotaPart(service: "antigravity", text: "0%")])
+                                 : Reading(widget: w, value: "42% 5h", label: "Quota", detail: "resets 14:00", fraction: 0.42,
+                                           parts: [QuotaPart(service: "claude", text: "42% · 61%"), QuotaPart(service: "codex", text: "12%"),
+                                                   QuotaPart(service: "antigravity", text: "0%")])
         case .network: return Reading(widget: w, value: "↓ 2.4 MB/s", label: "Network", detail: "↑ 0.3 MB/s")
         case .downloads: return Reading(widget: w, value: "2 · 68%", label: "Downloads", detail: "Report.pdf", fraction: 0.68)
         case .timer: return Reading(widget: w, value: "18:42", label: "Timer", detail: "of 25:00", fraction: 0.75)

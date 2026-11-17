@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var trustItem: NSMenuItem!
     private var trustSeparator: NSMenuItem!
     private var appearanceItems: [Settings.Appearance: NSMenuItem] = [:]
+    private var themeItems: [String: NSMenuItem] = [:]
     private var dotsItems: [Settings.Dots: NSMenuItem] = [:]
     private var widthItems: [Settings.Width: NSMenuItem] = [:]
     private var hideEmptyItem: NSMenuItem!
@@ -126,6 +127,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             i.target = self; i.representedObject = a.rawValue
             appearance.addItem(i); appearanceItems[a] = i
         }
+        let themes = NSMenu()
+        themes.autoenablesItems = false
+        for palette in Tokens.Themes.all {
+            let i = NSMenuItem(title: palette.name, action: #selector(pickTheme(_:)), keyEquivalent: "")
+            i.target = self; i.representedObject = palette.id
+            themes.addItem(i); themeItems[palette.id] = i
+        }
+        let themeItem = NSMenuItem(title: "Theme", action: nil, keyEquivalent: "")
+        themeItem.submenu = themes
+        sub.addItem(themeItem)
         let appearanceItem = NSMenuItem(title: "Appearance", action: nil, keyEquivalent: "")
         appearanceItem.submenu = appearance
         sub.addItem(appearanceItem)
@@ -203,6 +214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hintItem.title = "Hold \(Settings.shortcut.name), tap Tab"
         trustItem.isHidden = trusted
         for (a, i) in appearanceItems { i.state = Settings.appearance == a ? .on : .off }
+        for (id, i) in themeItems { i.state = Tokens.Themes.named(Settings.theme).id == id ? .on : .off }
         for (d, i) in dotsItems { i.state = Settings.dots == d ? .on : .off }
         for (wd, i) in widthItems { i.state = Settings.panelWidth == wd ? .on : .off }
         hideEmptyItem.state = Settings.hideEmptyDesktops ? .on : .off
@@ -341,6 +353,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showList() { Controller.shared.showFromMenu() }
     @objc private func openSettings() { SettingsWindowController.shared.show() }
     @objc private func openAbout() { SettingsWindowController.shared.show(tab: 4) }
+    @objc private func pickTheme(_ sender: NSMenuItem) {
+        if let id = sender.representedObject as? String { Settings.theme = id }
+    }
+
     @objc private func pickAppearance(_ sender: NSMenuItem) {
         if let raw = sender.representedObject as? String, let a = Settings.Appearance(rawValue: raw) { Settings.appearance = a }
     }

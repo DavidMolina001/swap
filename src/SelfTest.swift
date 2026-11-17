@@ -211,6 +211,7 @@ enum SelfTest {
 
     static func then(_ delay: Double, _ f: @escaping () -> Void) { queue.append((delay, f)) }
     static func run() {
+        SwapMenu.dryRun = true   // the whole run: any step that ends on Swap's row must never start a real menu loop
         guard !queue.isEmpty else { return }
         let (d, f) = queue.removeFirst()
         DispatchQueue.main.asyncAfter(deadline: .now() + d) { f(); run() }

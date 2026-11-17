@@ -384,7 +384,7 @@ final class QuotaSource: Glance.Source {
         return r
     }
 
-    private func load() -> Glance.Reading {
+    private func loadFile() -> Glance.Reading {
         let idle = Glance.Reading(widget: .quota, value: "", label: "Quota", idle: true)
         let url = Glance.quotaFile
         guard let data = try? Data(contentsOf: url),
@@ -395,13 +395,78 @@ final class QuotaSource: Glance.Source {
         else { return idle }
         guard Date().timeIntervalSince(updated) < QuotaSource.stale else { return idle }
         let tightest = json["tightest"] as? [String: Any]
+        let parts = (json["parts"] as? [[String: Any]])?.compactMap { p -> Glance.QuotaPart? in
+            guard let svc = p["service"] as? String, let text = p["text"] as? String else { return nil }
+            return Glance.QuotaPart(service: svc, text: text, level: Glance.Level(rawValue: p["level"] as? String ?? "") ?? .normal,
+                                    muted: p["muted"] as? Bool ?? false)
+        }
         guard let tightText = (tightest?["text"] as? String)?.trimmingCharacters(in: .whitespaces), !tightText.isEmpty else { return idle }
         var value = tightText
         if Settings.quotaCell == .pill, let pill = (json["pill"] as? String)?.trimmingCharacters(in: .whitespaces), !pill.isEmpty, pill.count <= 12 { value = pill }
         let levelText = (json["level"] as? String) ?? (tightest?["level"] as? String) ?? "normal"
         let level = Glance.Level(rawValue: levelText) ?? .normal
         let fraction = (tightest?["fraction"] as? NSNumber).map { min(1, max(0, $0.doubleValue)) }
-        return Glance.Reading(widget: .quota, value: value, label: "Quota", detail: json["detail"] as? String, fraction: fraction, level: level == .none ? .normal : level)
+        return Glance.Reading(widget: .quota, value: value, label: "Quota", detail: json["detail"] as? String, fraction: fraction, level: level == .none ? .normal : level,
+                              parts: parts)
+    }
+
+    private func load() -> Glance.Reading {
+        let fromFile = loadFile()
+        if !fromFile.idle, fromFile.parts != nil { return fromFile }
+        // Quota does not write glance.json yet: build the same per-service figures from its own log.
+        if let parts = QuotaSource.partsFromLog(), !parts.isEmpty {
+            let worst = parts.filter { !$0.muted }.map(\.level)
+            let level: Glance.Level = worst.contains(.limit) ? .limit : worst.contains(.warning) ? .warning : .normal
+            return Glance.Reading(widget: .quota, value: parts.map(\.text).joined(separator: " | "), label: "Quota", level: level, parts: parts)
+        }
+        return fromFile
+    }
+
+    // Quota's readings log (one JSON line per limit per refresh) read the way Quota's menu bar reads its state: each
+    // service's latest refresh, Claude as its 5-hour and 7-day figures (the 5-hour falls back to the first limit, as in
+    // Quota), other services all their limits, Antigravity only its tightest. Quota's own order, hidden services and
+    // Claude choice come from its preferences. Read only; nothing is written.
+    static func partsFromLog(now: Date = Date()) -> [Glance.QuotaPart]? {
+        let url = Glance.quotaFile.deletingLastPathComponent().appendingPathComponent("readings.jsonl")
+        guard let h = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? h.close() }
+        let size = (try? h.seekToEnd()) ?? 0
+        try? h.seek(toOffset: size > 65_536 ? size - 65_536 : 0)
+        guard let data = try? h.readToEnd(), let text = String(data: data, encoding: .utf8) else { return nil }
+        struct Row { let limit: String; let used: Double; let t: Double }
+        var latest: [String: Double] = [:], rows: [String: [Row]] = [:]
+        for line in text.split(separator: "\n") {
+            guard let d = line.data(using: .utf8), let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+                  let p = j["provider"] as? String, let lim = j["limit"] as? String,
+                  let used = (j["used"] as? NSNumber)?.doubleValue, let t = (j["t"] as? NSNumber)?.doubleValue else { continue }
+            if t > (latest[p] ?? 0) { latest[p] = t; rows[p] = [] }
+            if t == latest[p] { rows[p, default: []].append(Row(limit: lim, used: used, t: t)) }
+        }
+        let prefs = UserDefaults(suiteName: "com.quota.app")
+        let hidden = Set(prefs?.stringArray(forKey: "hiddenInPill") ?? [])
+        let saved = prefs?.stringArray(forKey: "serviceOrder") ?? []
+        let order = saved + ["claude", "codex", "grok", "antigravity", "cursor"].filter { !saved.contains($0) }
+        let claudePill = prefs?.string(forKey: "claudePill") ?? "both"
+        func pct(_ u: Double) -> String { "\(Int(min(max(u, 0), 100).rounded()))%" }
+        func level(_ u: Double) -> Glance.Level { u.rounded() >= 100 ? .limit : u >= 80 ? .warning : .normal }
+        var out: [Glance.QuotaPart] = []
+        for svc in order where !hidden.contains(svc) {
+            guard var ws = rows[svc], !ws.isEmpty, let t = latest[svc] else { continue }
+            let age = now.timeIntervalSince1970 - t
+            if age > 24 * 3600 { continue }   // a service Quota stopped checking
+            if svc == "claude" {
+                let five = ws.first { $0.limit == "five_hour" } ?? ws.first, seven = ws.first { $0.limit == "seven_day" }
+                switch claudePill {
+                case "five": ws = [five].compactMap { $0 }
+                case "seven": ws = [seven ?? five].compactMap { $0 }
+                default: ws = [five, seven].compactMap { $0 }
+                }
+            }
+            guard let top = ws.max(by: { $0.used < $1.used }) else { continue }
+            let text = svc == "antigravity" ? pct(top.used) : ws.map { pct($0.used) }.joined(separator: " · ")
+            out.append(Glance.QuotaPart(service: svc, text: text, level: level(top.used), muted: age > QuotaSource.stale))
+        }
+        return out
     }
 }
 
