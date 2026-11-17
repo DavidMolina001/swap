@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var flashOn = false
 
     func applicationDidFinishLaunching(_ note: Notification) {
+        Settings.migrateWhatsAppChats()
         // No Accessibility call waits more than a quarter second on an app, whatever element it is made on.
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 0.25)
         if let front = NSWorkspace.shared.frontmostApplication { Windows.noteActive(front.processIdentifier) }

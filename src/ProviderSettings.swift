@@ -52,8 +52,10 @@ extension SlackSource: ProviderSettings {
 extension WhatsAppSource: ProviderSettings {
     static var settingsSection: ProviderSection {
         ProviderSection(title: "WhatsApp", footer: "Reads your chat list on this Mac. WhatsApp does not endorse this and its terms are broad.", rows: [
-            .toggle(title: "Show Archived", help: Settings.drillIn ? "An Archived row above your chats." : needsInsideApps,
-                    isOn: Binding(get: { Settings.whatsappArchive }, set: { Settings.whatsappArchive = $0 }), enabled: Settings.drillIn),
+            .toggle(title: "Show WhatsApp chats", help: Settings.drillIn ? "Return on WhatsApp lists your recent chats. Off until you switch it on." : needsInsideApps,
+                    isOn: Binding(get: { Settings.whatsappChats }, set: { Settings.whatsappChats = $0 }), enabled: Settings.drillIn),
+            .toggle(title: "Show Archived", help: Settings.drillIn && Settings.whatsappChats ? "An Archived row above your chats." : "Needs Show WhatsApp chats.",
+                    isOn: Binding(get: { Settings.whatsappArchive }, set: { Settings.whatsappArchive = $0 }), enabled: Settings.drillIn && Settings.whatsappChats),
         ])
     }
 }

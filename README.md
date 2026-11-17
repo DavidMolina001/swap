@@ -119,7 +119,7 @@ Settings has seven panes:
 | General | Shortcut (Option + Tab, Command + Tab, Control + Tab); which screen the list opens on; start at login; permissions |
 | Keys | Quick flip; number keys; letter keys; keep the list open until you choose; every key listed |
 | List | What is listed: minimised windows, windows of hidden apps, windows with no title, the search row; apps to leave out |
-| Inside apps | **Show tabs and chats inside apps** (off by default); order of tabs and chats; Slack: one row per workspace, which workspaces show, Clear saved chats; WhatsApp: show Archived; pins |
+| Inside apps | **Show tabs and chats inside apps** (on by default); order of tabs and chats; Slack: one row per workspace, which workspaces show, Clear saved chats; WhatsApp: show chats (off until you switch it on), show Archived; pins |
 | Appearance | A preview that plays a setting once when you point at it or change it, then rests on your own list. Theme (Full Stripe, Soft Rainbow, Dusk, Night Arcade, Sorbet, Sea Glass, Dusty Seventies, Blossom, or System for the Mac's accent colour: the selected row, unread dots and Glance bar tiles; Full Stripe also puts a thin stripe band along the top and stripes at the end of the selected row); appearance (match system, light, dark); list width (same every time, or fit the longest name); app name on the right; animations (off by default, for the fade on opening; a desktop swipe always follows your fingers unless Reduce Motion is on); one page per desktop or all desktops in one list; page dots (one per desktop, or compact: 5 at most); hide desktops with no windows; Swap itself: show in the Dock, show Swap at the bottom of the list (both on by default) |
 | Glance bar | On or off; density (Compact, Regular, Detailed); Quota widget text; widgets and their order; timer presets and alert |
 | About | Version, links, releases |
@@ -129,8 +129,8 @@ Command + Tab replaces the Mac app switcher while Swap runs. Settings are stored
 
 ## At a glance (Mac)
 
-Swap can show a strip of small readings above the list: the **glance bar**. It is **off** unless you switch
-it on (Settings > Glance bar > Show glance bar). Readings are taken only while the list is open: nothing runs
+Swap can show a strip of small readings above the list: the **glance bar**. It is **on** by default and can be switched
+off in Settings > Glance bar > Show glance bar. Readings are taken only while the list is open: nothing runs
 in the background, nothing is stored, nothing leaves the Mac. Up to six widgets fit; pick them and their order
 in Settings > Glance bar.
 
@@ -168,8 +168,9 @@ bar is clickable.
   <img src="screenshots/swap-inside-light.png" width="900" alt="A Chrome window expanded into its three tabs, the first one pinned; two Slack workspaces as rows of their own">
 </picture>
 
-Off by default. Switch on **Show tabs and chats inside apps** at the top of Settings > Inside apps and a
-browser window, a Slack workspace or WhatsApp gets a small chevron on the right. Return opens it in place,
+On by default (**Show tabs and chats inside apps**, at the top of Settings > Inside apps): a browser window or a
+Slack workspace gets a small chevron on the right. WhatsApp's chats are off until you switch on **Show WhatsApp
+chats** in the same pane, because WhatsApp's terms are the broadest. Return opens it in place,
 indented, like a folder:
 
 - **Chrome, Edge, Brave, Safari:** the window's tabs, with the site on the right and the current tab
@@ -333,7 +334,7 @@ Mac source, `src/`:
 - `Settings.swift`: the user defaults. `SettingsWindow.swift`, `SettingsPanes.swift`, `SettingsPreview.swift`: the
   Settings window. `ProviderSettings.swift`: what each app adds to Settings > Inside apps.
   Keys: `shortcut` (optionTab | commandTab | controlTab), `quickFlip`, `numberKeys`, `actionKeys`, `drillIn`, `childOrder` (natural | recent),
-  `slackWorkspaces`, `slackHidden` (workspace names), `whatsappArchive`, `pins` (workspace or bundle id: child ids), `searchRow` (default on), `keepOpen`, `showOnScreen` (active | mouse),
+  `slackWorkspaces`, `slackHidden` (workspace names), `whatsappChats` (default off), `whatsappArchive`, `pins` (workspace or bundle id: child ids), `searchRow` (default on), `keepOpen`, `showOnScreen` (active | mouse),
   `desktops` (pages | flat), `hideEmptyDesktops`, `pageDots` (all | compact), `panelWidth` (fixed | fit), `showMinimised`, `showHidden`,
   `showAppName`, `appearance` (system | light | dark), `theme` (fullStripe | softRainbow | dusk | nightArcade | sorbet | seaGlass |
   dustySeventies | blossom | system; default fullStripe), `hiddenApps` (bundle ids), `hideUntitled`, `animations`,

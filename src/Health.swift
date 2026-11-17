@@ -45,6 +45,15 @@ enum Health {
             "accessibility": trusted,
             "screenLocked": session?["CGSSessionScreenIsLocked"] as? Bool ?? false,
             "displayAsleep": CGDisplayIsAsleep(CGMainDisplayID()) != 0,
+            // Desktops as Swap sees them: counts only, so a tester's report can show why pages are missing.
+            "desktops": [
+                "spacesReadable": Spaces.available,
+                "displays": NSScreen.screens.count,
+                "separateSpaces": NSScreen.screensHaveSeparateSpaces,
+                "onMainDisplay": Spaces.desktops()?.list.count ?? 0,
+                "fullScreen": Spaces.desktops()?.list.filter { $0.fullScreen }.count ?? 0,
+            ] as [String: Any],
+            "macOS": ProcessInfo.processInfo.operatingSystemVersionString,
             "apps": apps,
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]),

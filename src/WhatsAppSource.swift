@@ -19,6 +19,7 @@ enum WhatsAppSource: AppProvider {
     static func groupChildren(of group: ChildItem, in parent: ParentRef) -> [ChildItem] { archived(of: parent) }
 
     static let bundleIDs: Set<String> = ["net.whatsapp.WhatsApp"]
+    static func canExpand(row: WindowItem) -> Bool { Settings.whatsappChats }   // opt-in: a plain row (with its Dock badge dot) until switched on
     private static let shown = 6
     private static let timeout: Float = 0.5
 

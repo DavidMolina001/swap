@@ -39,9 +39,22 @@ enum Settings {
     static var showAppName: Bool { get { bool("showAppName", true) } set { set("showAppName", newValue) } }
 
     // Drill-in (Children.swift): Return expands a browser window into its tabs, a Slack row into its chats.
-    static var drillIn: Bool { get { bool("drillIn", false) } set { set("drillIn", newValue) } }
+    static var drillIn: Bool { get { bool("drillIn", true) } set { set("drillIn", newValue) } }
     // Pinned tabs and chats, listed first under their row. Keyed by Slack workspace name or browser bundle id.
     static var pins: [String: [String]] { get { d.dictionary(forKey: "pins") as? [String: [String]] ?? [:] } set { set("pins", newValue) } }
+    // WhatsApp's chats are their own opt-in (its terms are the broadest): off for a new install. Someone who had already
+    // switched tabs and chats on before this setting existed keeps the chats they had.
+    static var whatsappChats: Bool {
+        get { bool("whatsappChats", false) }
+        set { set("whatsappChats", newValue) }
+    }
+    // Once, at launch: anyone who switched tabs and chats on themselves (the old default was off, so only they have
+    // the key stored) keeps their WhatsApp chats; later toggles never switch WhatsApp on by themselves.
+    static func migrateWhatsAppChats() {
+        guard d.object(forKey: "whatsappChats") == nil, d.object(forKey: "whatsappChatsMigrated") == nil else { return }
+        if (d.object(forKey: "drillIn") as? Bool) == true { d.set(true, forKey: "whatsappChats") }
+        d.set(true, forKey: "whatsappChatsMigrated")
+    }
     static var whatsappArchive: Bool { get { bool("whatsappArchive", false) } set { set("whatsappArchive", newValue) } }   // an Archived row above the chats
     static var slackWorkspaces: Bool { get { bool("slackWorkspaces", true) } set { set("slackWorkspaces", newValue) } }   // one row per workspace
     static var slackHidden: [String] { get { d.stringArray(forKey: "slackHidden") ?? [] } set { set("slackHidden", newValue) } }
@@ -56,7 +69,7 @@ enum Settings {
 
     // Glance bar (GlanceModel.swift). Off by default; widgets in the user's order, left to right.
     enum QuotaCell: String, CaseIterable { case tightest, pill }
-    static var glanceBar: Bool { get { bool("glanceBar", false) } set { set("glanceBar", newValue) } }
+    static var glanceBar: Bool { get { bool("glanceBar", true) } set { set("glanceBar", newValue) } }
     static var glanceDensity: Glance.Density { get { Glance.Density(rawValue: d.string(forKey: "glanceDensity") ?? "") ?? .regular } set { set("glanceDensity", newValue.rawValue) } }
     static var glanceWidgets: [String] { get { d.stringArray(forKey: "glanceWidgets") ?? ["cpu", "memory", "gpu", "quota", "timer"] } set { set("glanceWidgets", newValue) } }
     static var glanceWidgetList: [Glance.Widget] { glanceWidgets.compactMap { Glance.Widget(rawValue: $0) }.filter { $0.available } }
