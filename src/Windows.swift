@@ -42,7 +42,7 @@ struct WindowItem {
 
     // Swap's own row. It has no app and no window, so nothing that acts on windows can reach Swap through it.
     static func swapRow() -> WindowItem {
-        var row = WindowItem(app: nil, window: nil, id: 0, title: "Swap", appName: "Menu",
+        var row = WindowItem(app: nil, window: nil, id: 0, title: "Swap", appName: "Settings",
                              icon: NSApp.applicationIconImage ?? NSImage(named: NSImage.applicationIconName) ?? NSImage(), minimized: false)
         row.isSelf = true
         return row

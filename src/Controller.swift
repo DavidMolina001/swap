@@ -888,13 +888,12 @@ final class Controller {
             item = pages[p.page].items[p.index]
         }
         if focus, let url = item?.opens { reset(); SearchSession.open(url); return }
-        // Swap's own row: the list closes and Swap's menu opens. Only when it was chosen: on the list, or with a key other
+        // Swap's own row: the list closes and Swap's Settings open. Only when it was chosen: on the list, or with a key other
         // than Tab. A Tab tapped before the list appeared never opens a menu out of nowhere.
         if let mine = item, mine.isSelf {
             let chosen = focus && (shown || steps > abs(pendingSteps))
-            let screen = panel.screen
             reset()
-            if chosen { AppCommand.abandon(); SwapMenu.open(on: screen) }
+            if chosen { AppCommand.abandon(); SwapMenu.openSettingsFromRow() }
             return
         }
         // Gone behind the list: say so and keep the list, rather than land somewhere else.

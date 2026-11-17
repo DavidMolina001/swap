@@ -1095,8 +1095,8 @@ enum SelfTest {
         then(0.7) {
             let c = Controller.shared, rows = rowsNow()
             check("Swap row: listed once, as the last row", isLastSelf(rows), rows.map { $0.isSelf ? "[Swap]" : $0.title }.joined(separator: ", "))
-            check("Swap row: Swap's name, no app or window behind it, Menu on the right",
-                  rows.last.map { $0.title == "Swap" && $0.appName == "Menu" && $0.app == nil && $0.window == nil } ?? false)
+            check("Swap row: Swap's name, no app or window behind it, Settings on the right",
+                  rows.last.map { $0.title == "Swap" && $0.appName == "Settings" && $0.app == nil && $0.window == nil } ?? false)
             check("Swap row: the first Tab lands on a window, not on it", c.selectedItem?.isSelf == false, "sel=\(c.selection)")
             check("Swap row: not part of the window list itself (recency, quick flip, search)", !Windows.list().contains { $0.isSelf })
             check("Swap row: opening the list does not bring Swap to the front", !NSRunningApplication.current.isActive)
@@ -1134,7 +1134,7 @@ enum SelfTest {
         }
         then(0.5) {
             let c = Controller.shared
-            check("Swap row: Return closes the list and opens Swap's menu", !c.isActive && !c.panel.isVisible && SwapMenu.opens == menuOpens + 1,
+            check("Swap row: Return closes the list and opens Swap's Settings", !c.isActive && !c.panel.isVisible && SwapMenu.opens == menuOpens + 1,
                   "opens=\(SwapMenu.opens - menuOpens)")
             flags(option: false)
         }
@@ -1143,7 +1143,7 @@ enum SelfTest {
         then(0.7) { toSelfRow() }
         then(0.4) { check("Swap row: selected before the release", Controller.shared.selectedItem?.isSelf == true); flags(option: false) }
         then(0.5) {
-            check("Swap row: releasing Option on it opens Swap's menu", !Controller.shared.isActive && SwapMenu.opens == menuOpens + 2,
+            check("Swap row: releasing Option on it opens Swap's Settings", !Controller.shared.isActive && SwapMenu.opens == menuOpens + 2,
                   "opens=\(SwapMenu.opens - menuOpens)")
         }
         // A click on it.
@@ -1155,7 +1155,7 @@ enum SelfTest {
             click(at: CGPoint(x: r.midX, y: NSScreen.screens[0].frame.height - r.midY))   // Quartz points start at the top left
         }
         then(0.6) {
-            check("Swap row: a click on it opens Swap's menu", !Controller.shared.isActive && SwapMenu.opens == menuOpens + 3,
+            check("Swap row: a click on it opens Swap's Settings", !Controller.shared.isActive && SwapMenu.opens == menuOpens + 3,
                   "opens=\(SwapMenu.opens - menuOpens)")
             flags(option: false)
         }
@@ -1170,7 +1170,7 @@ enum SelfTest {
         }
         then(0.5) {
             if numbered {
-                check("Swap row: its number key opens Swap's menu", !Controller.shared.isActive && SwapMenu.opens == menuOpens + 4,
+                check("Swap row: its number key opens Swap's Settings", !Controller.shared.isActive && SwapMenu.opens == menuOpens + 4,
                       "opens=\(SwapMenu.opens - menuOpens)")
             }
             flags(option: false)
@@ -1204,7 +1204,7 @@ enum SelfTest {
             flags(option: false)
         }
         then(0.5) {
-            check("Swap row alone: releasing opens Swap's menu", !Controller.shared.isActive && SwapMenu.opens == menuOpens + 1,
+            check("Swap row alone: releasing opens Swap's Settings", !Controller.shared.isActive && SwapMenu.opens == menuOpens + 1,
                   "opens=\(SwapMenu.opens - menuOpens)")
             Scene.current = nil
             Settings.showSelfInList = false

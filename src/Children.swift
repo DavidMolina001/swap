@@ -39,7 +39,7 @@ enum Verbs {
         .group: [.quit],
         .windowless: [.command],                // Finder with no window: N opens one
         .found: [],                             // a file or an app from search: Return opens it, nothing else applies
-        .menu: [],                              // Swap's own row: Return opens Swap's menu, nothing else applies
+        .menu: [],                              // Swap's own row: Return opens Swap's Settings, nothing else applies
     ]
 
     static func kind(of item: WindowItem) -> Kind {
@@ -65,7 +65,7 @@ enum Verbs {
         }
     }
     static let notAKey = "Not a shortcut. / searches"
-    static let menuRow = "Swap's row only opens its menu"
+    static let menuRow = "Swap's row only opens Settings"
     static let stayedOpen = "That tab stayed open"
     static let windowGone = "That window has closed"
 }

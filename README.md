@@ -108,8 +108,8 @@ Esc), **Timer** (5, 15, 25, 45 minutes, Custom, Stop; see "At a glance"), **Sett
 at the top takes you to the right System Settings pane.
 
 Swap's Dock icon opens the same menu when you click it, and offers the same items on a right-click. The last row
-of the list on your desktop is Swap itself ("Swap", "Menu" on the right): pick it (Return, let go of Option, a
-click or its number) and the list closes and this menu opens. A quick Option + Tab never lands on it, and W, Q and
+of the list on your desktop is Swap itself ("Swap", "Settings" on the right): pick it (Return, let go of Option,
+a click or its number) and the list closes and Settings opens. A quick Option + Tab never lands on it, and W, Q and
 P do nothing on it. Both can be switched off in Settings > Appearance > Swap itself.
 
 Settings has seven panes:

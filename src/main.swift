@@ -3,7 +3,7 @@ import ApplicationServices
 import ServiceManagement
 import UserNotifications
 
-let appVersion = "0.9.2"
+let appVersion = "0.9.3"
 
 // The one-time "Allow" box before the Downloads widget is switched on (menu and Settings share it). The
 // first folder read afterwards is what makes macOS ask for Downloads access, so the user hears about it first.

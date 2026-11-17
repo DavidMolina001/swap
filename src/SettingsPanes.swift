@@ -538,7 +538,7 @@ struct AppearancePane: View {
             Section("Swap itself") {
                 SwitchRow(title: "Show in the Dock", help: "Click the Dock icon to open Swap's menu. Off: Swap is in the menu bar only.",
                           isOn: setting(Settings.showInDock) { Settings.showInDock = $0 })
-                SwitchRow(title: "Show Swap at the bottom of the list", help: "A last row for Swap. Pick it to open Swap's menu.",
+                SwitchRow(title: "Show Swap at the bottom of the list", help: "A last row for Swap. Pick it to open these Settings.",
                           isOn: setting(Settings.showSelfInList) { Settings.showSelfInList = $0 })
             }
         }

@@ -574,6 +574,15 @@ enum SwapMenu {
     static var dryRun = false            // the self-test counts the decision and shows nothing, so no tracking loop blocks it
     #endif
 
+    // Swap's own row in the list opens Settings (David, 17 Nov 2026); the Dock icon still opens the menu.
+    static func openSettingsFromRow() {
+        opens += 1
+        #if SELFTEST
+        if dryRun { return }
+        #endif
+        DispatchQueue.main.async { SettingsWindowController.shared.show() }
+    }
+
     // `point` is a place on screen (the pointer, for the Dock); nil puts the menu in the middle of `screen`.
     static func open(at point: NSPoint? = nil, on screen: NSScreen? = nil) {
         opens += 1
