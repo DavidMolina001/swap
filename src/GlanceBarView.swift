@@ -13,6 +13,7 @@ final class GlanceBarView: NSView {
     private var all: [Glance.Reading] = []   // the last readings given, before fitting
     // A cell never shrinks within a session, so a value going from "23%" to "9%" does not shuffle the row.
     private var sticky: [Glance.Widget: CGFloat] = [:]
+    private var quotaNames = true   // Quota's service names under the figures; dropped first when the bar is short of room
 
     init(frame: NSRect, readings: [Glance.Reading], density: Glance.Density, theme: Theme) {
         self.theme = theme
@@ -26,12 +27,27 @@ final class GlanceBarView: NSView {
     func update(_ new: [Glance.Reading]) {
         all = new
         let shown = new.filter { !$0.idle }
-        for r in shown {
+        for r in shown where r.widget != .quota {   // Quota's width depends on how much room is left, so it never sticks
             let w = GlanceBarView.naturalWidth(r, density: density, theme: theme)
             sticky[r.widget] = max(sticky[r.widget] ?? 0, w)
         }
-        readings = GlanceBarView.fit(shown, width: bounds.width, density: density) { [sticky] r in
-            sticky[r.widget] ?? GlanceBarView.naturalWidth(r, density: self.density, theme: self.theme)
+        // Everything chosen should fit. Quota gives way first: its service names go, then it becomes one tile.
+        func fitted(_ list: [Glance.Reading], names: Bool) -> [Glance.Reading] {
+            GlanceBarView.fit(list, width: bounds.width, density: density) { [sticky] r in
+                r.widget == .quota ? GlanceBarView.naturalWidth(r, density: self.density, theme: self.theme, names: names)
+                    : (sticky[r.widget] ?? GlanceBarView.naturalWidth(r, density: self.density, theme: self.theme))
+            }
+        }
+        let wanted = min(shown.count, Glance.maxWidgets)
+        quotaNames = true
+        readings = fitted(shown, names: true)
+        if readings.count < wanted, let q = shown.firstIndex(where: { $0.parts != nil }) {
+            quotaNames = false
+            readings = fitted(shown, names: false)
+            if readings.count < wanted || !readings.contains(where: { $0.widget == .quota }) {
+                var narrow = shown; narrow[q].parts = nil
+                readings = fitted(narrow, names: false)
+            }
         }
         needsDisplay = true
     }
@@ -95,9 +111,9 @@ final class GlanceBarView: NSView {
     }
 
     // Width of one widget at rest: tile, gap, then the widest of value, label line and (Detailed) the level bar slot.
-    static func naturalWidth(_ r: Glance.Reading, density: Glance.Density, theme: Theme) -> CGFloat {
+    static func naturalWidth(_ r: Glance.Reading, density: Glance.Density, theme: Theme, names: Bool = true) -> CGFloat {
         let m = metrics(density)
-        if let parts = r.parts, !parts.isEmpty { return ceil(partsWidth(parts, m)) }
+        if let parts = r.parts, !parts.isEmpty { return ceil(partsWidth(parts, m, names: names && density != .compact)) }
         var text = (valueText(r, density: density) as NSString).size(withAttributes: [.font: valueFont(r, m)]).width
         if marked(r, theme: theme) { text += 2 + ("!" as NSString).size(withAttributes: [.font: markFont]).width }
         if let l = labelText(r, density: density, theme: theme) { text = max(text, l.size().width) }
@@ -124,7 +140,8 @@ final class GlanceBarView: NSView {
 
     // Left edge of each drawn widget: spread edge to edge, a single widget stays on the left.
     private func origins() -> [CGFloat] {
-        let widths = readings.map { sticky[$0.widget] ?? GlanceBarView.naturalWidth($0, density: density, theme: theme) }
+        let widths = readings.map { $0.widget == .quota ? GlanceBarView.naturalWidth($0, density: density, theme: theme, names: quotaNames)
+                                                    : (sticky[$0.widget] ?? GlanceBarView.naturalWidth($0, density: density, theme: theme)) }
         let left = Tokens.Size.iconInset, right = bounds.width - Tokens.Size.textInsetRight
         guard widths.count > 1 else { return widths.isEmpty ? [] : [left] }
         let gap = max(0, (right - left - widths.reduce(0, +)) / CGFloat(widths.count - 1))
@@ -208,45 +225,57 @@ final class GlanceBarView: NSView {
         logos[service] = img
         return img
     }
-    private static let partGap: CGFloat = 5, sepGap: CGFloat = 9
-    private static func partsWidth(_ parts: [Glance.QuotaPart], _ m: Metrics) -> CGFloat {
-        let logo = m.tile * 0.78
-        var w: CGFloat = 0
-        for (i, p) in parts.enumerated() {
-            if i > 0 { w += sepGap * 2 + 1 }
-            w += logo + partGap + (p.text as NSString).size(withAttributes: [.font: m.valueFont]).width
-        }
-        return w
+    private static let sepGap: CGFloat = 10
+    // Each service sits like any other widget: its logo at tile size, the figures on the value line and, at Regular and
+    // Detailed, its name under them, so the Quota cell lines up with CPU, Memory and the rest.
+    private static func serviceName(_ s: String) -> String {
+        switch s { case "claude": return "Claude"; case "codex": return "Codex"; case "antigravity": return "Antigravity"
+        case "grok": return "Grok"; case "cursor": return "Cursor"; default: return s.capitalized }
+    }
+    private static func partWidth(_ p: Glance.QuotaPart, _ m: Metrics, names: Bool) -> CGFloat {
+        var text = (p.text as NSString).size(withAttributes: [.font: m.valueFont]).width
+        if names { text = max(text, (serviceName(p.service) as NSString).size(withAttributes: [.font: labelFont]).width) }
+        return m.tile + m.iconGap + text
+    }
+    private static func partsWidth(_ parts: [Glance.QuotaPart], _ m: Metrics, names: Bool) -> CGFloat {
+        parts.map { partWidth($0, m, names: names) }.reduce(0, +) + CGFloat(max(0, parts.count - 1)) * (sepGap * 2 + 1)
     }
     private func drawParts(_ parts: [Glance.QuotaPart], at x0: CGFloat, midY: CGFloat, m: Metrics) {
-        let size = m.tile * 0.78
+        let barH: CGFloat = density == .detailed ? Tokens.Size.glanceLevelBarGap + Tokens.Size.glanceLevelBar : 0
+        let block = m.valueLine + m.labelLine + barH
+        let top = midY + block / 2
         var x = x0
         for (i, p) in parts.enumerated() {
             if i > 0 {
                 x += GlanceBarView.sepGap
                 theme.color(Tokens.Color.separator).setFill()
-                NSRect(x: x, y: midY - m.valueLine / 2, width: 1, height: m.valueLine).fill()
+                NSRect(x: x, y: midY - m.tile / 2, width: 1, height: m.tile).fill()
                 x += 1 + GlanceBarView.sepGap
             }
-            let box = NSRect(x: x, y: midY - size / 2, width: size, height: size)
+            let box = NSRect(x: x, y: midY - m.tile / 2, width: m.tile, height: m.tile)
             if let img = GlanceBarView.logo(p.service) {
                 img.draw(in: box, from: .zero, operation: .sourceOver, fraction: p.muted ? 0.45 : 1)
-            } else {   // Quota not installed here: the service's initial in a small round tile
+            } else {   // Quota not installed here: the service's initial in a tile
                 theme.color(Tokens.Color.tileQuota).setFill()
-                NSBezierPath(ovalIn: box).fill()
+                NSBezierPath(roundedRect: box, xRadius: m.radius, yRadius: m.radius).fill()
                 let ch = String(p.service.prefix(1)).uppercased() as NSString
-                let f = NSFont.systemFont(ofSize: size * 0.55, weight: .bold)
+                let f = NSFont.systemFont(ofSize: m.tile * 0.55, weight: .bold)
                 let cs = ch.size(withAttributes: [.font: f])
                 ch.draw(at: NSPoint(x: box.midX - cs.width / 2, y: box.midY - cs.height / 2), withAttributes: [.font: f, .foregroundColor: theme.color(Tokens.Color.tileGlyph)])
             }
-            x += size + GlanceBarView.partGap
+            let tx = x + m.tile + m.iconGap
             let colour: NSColor = p.muted ? theme.color(Tokens.Color.tertiary)
                 : p.level == .limit ? theme.color(Tokens.Color.glanceLimit)
                 : p.level == .warning ? theme.color(Tokens.Color.glanceWarning) : theme.color(Tokens.Color.label)
-            let attrs: [NSAttributedString.Key: Any] = [.font: m.valueFont, .foregroundColor: colour]
-            let t = p.text as NSString, ts = t.size(withAttributes: attrs)
-            t.draw(at: NSPoint(x: x, y: midY - ts.height / 2), withAttributes: attrs)
-            x += ts.width
+            let names = quotaNames && density != .compact
+            let valueTop = names ? top : midY + m.valueLine / 2
+            (p.text as NSString).draw(with: NSRect(x: tx, y: valueTop - m.valueLine, width: 400, height: m.valueLine), options: .usesLineFragmentOrigin,
+                                      attributes: [.font: m.valueFont, .foregroundColor: colour])
+            if names {
+                (GlanceBarView.serviceName(p.service) as NSString).draw(with: NSRect(x: tx, y: top - m.valueLine - m.labelLine, width: 400, height: m.labelLine),
+                    options: .usesLineFragmentOrigin, attributes: [.font: GlanceBarView.labelFont, .foregroundColor: theme.color(Tokens.Color.secondary)])
+            }
+            x += GlanceBarView.partWidth(p, m, names: names)
         }
     }
 

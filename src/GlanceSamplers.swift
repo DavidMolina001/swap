@@ -417,7 +417,10 @@ final class QuotaSource: Glance.Source {
         if let parts = QuotaSource.partsFromLog(), !parts.isEmpty {
             let worst = parts.filter { !$0.muted }.map(\.level)
             let level: Glance.Level = worst.contains(.limit) ? .limit : worst.contains(.warning) ? .warning : .normal
-            return Glance.Reading(widget: .quota, value: parts.map(\.text).joined(separator: " | "), label: "Quota", level: level, parts: parts)
+            // value: what the single Quota tile shows when the services do not fit, the tightest figure
+            let tight = parts.filter { !$0.muted }.flatMap { $0.text.components(separatedBy: " · ") }
+                .compactMap { Int($0.replacingOccurrences(of: "%", with: "")) }.max()
+            return Glance.Reading(widget: .quota, value: tight.map { "\($0)%" } ?? parts[0].text, label: "Quota", level: level, parts: parts)
         }
         return fromFile
     }
@@ -464,7 +467,7 @@ final class QuotaSource: Glance.Source {
             }
             guard let top = ws.max(by: { $0.used < $1.used }) else { continue }
             let text = svc == "antigravity" ? pct(top.used) : ws.map { pct($0.used) }.joined(separator: " · ")
-            out.append(Glance.QuotaPart(service: svc, text: text, level: level(top.used), muted: age > QuotaSource.stale))
+            out.append(Glance.QuotaPart(service: svc, text: text, level: level(top.used), muted: age > 6 * 3600))   // the log gets a line only when a figure changes, so a quiet service is not out of date
         }
         return out
     }

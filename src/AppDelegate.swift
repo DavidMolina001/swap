@@ -3,11 +3,13 @@ import AppKit
 import ApplicationServices
 import ServiceManagement
 import UserNotifications
+import Carbon   // IsSecureEventInputEnabled: another app blocking every keyboard hook
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var hintItem: NSMenuItem!
     private var trustItem: NSMenuItem!
+    private var keysItem: NSMenuItem!   // why the shortcut is not working, when Accessibility is on but keys do not arrive
     private var trustSeparator: NSMenuItem!
     private var appearanceItems: [Settings.Appearance: NSMenuItem] = [:]
     private var themeItems: [String: NSMenuItem] = [:]
@@ -88,6 +90,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trustItem = NSMenuItem(title: "Accessibility needed. Click to open settings", action: #selector(openAccessibility), keyEquivalent: "")
         trustItem.target = self
         menu.addItem(trustItem)
+        keysItem = NSMenuItem(title: "", action: #selector(restartSwap), keyEquivalent: "")
+        keysItem.target = self
+        keysItem.isHidden = true
+        menu.addItem(keysItem)
         menu.addItem(.separator())
         let show = NSMenuItem(title: "Show window list", action: #selector(showList), keyEquivalent: "")
         show.target = self
@@ -209,10 +215,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refreshMenu()
     }
 
+    @objc private func restartSwap() {
+        let path = Bundle.main.bundlePath
+        let p = Process(); p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", "sleep 1; /usr/bin/open \"$0\"", path]
+        try? p.run()
+        NSApp.terminate(nil)
+    }
+
+    // The app holding secure typing, from the window server's session record (kCGSSessionSecureInputPID).
+    static func secureInputOwner() -> String? {
+        guard let session = CGSessionCopyCurrentDictionary() as? [String: Any],
+              let pid = (session["kCGSSessionSecureInputPID"] as? NSNumber)?.int32Value, pid > 0 else { return nil }
+        return NSRunningApplication(processIdentifier: pid)?.localizedName
+    }
+
     fileprivate func refreshMenu() {
         let trusted = AXIsProcessTrusted()
         hintItem.title = "Hold \(Settings.shortcut.name), tap Tab"
         trustItem.isHidden = trusted
+        // Accessibility on, yet no keys: either the hook did not start, or an app has secure typing on (a password field,
+        // Terminal's Secure Keyboard Entry), which hides every key from every app like Swap until it is off.
+        if trusted, Controller.shared.tap == nil {
+            keysItem.title = "Shortcut not started. Click to restart Swap"; keysItem.isEnabled = true; keysItem.isHidden = false
+        } else if trusted, IsSecureEventInputEnabled() {
+            keysItem.title = "Shortcut blocked by secure typing in \(AppDelegate.secureInputOwner() ?? "another app")"
+            keysItem.isEnabled = false; keysItem.isHidden = false
+        } else {
+            keysItem.isHidden = true
+        }
         for (a, i) in appearanceItems { i.state = Settings.appearance == a ? .on : .off }
         for (id, i) in themeItems { i.state = Tokens.Themes.named(Settings.theme).id == id ? .on : .off }
         for (d, i) in dotsItems { i.state = Settings.dots == d ? .on : .off }
