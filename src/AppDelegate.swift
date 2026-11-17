@@ -207,6 +207,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(personal)
 
         menu.addItem(.separator())
+        let updates = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        updates.target = self
+        menu.addItem(updates)
         let about = NSMenuItem(title: "About Swap", action: #selector(openAbout), keyEquivalent: "")
         about.target = self
         menu.addItem(about)
@@ -215,6 +218,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
         refreshMenu()
     }
+
+    @objc func checkForUpdates() { Updater.shared.checkInteractively() }
 
     @objc private func restartSwap() {
         let path = Bundle.main.bundlePath
@@ -522,7 +527,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appMenu = NSMenu(title: "Swap")
         let about = NSMenuItem(title: "About Swap", action: #selector(mainMenuAbout), keyEquivalent: "")
         about.target = self
+        let mainUpdates = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        mainUpdates.target = self
         appMenu.addItem(about)
+        appMenu.addItem(mainUpdates)
         appMenu.addItem(.separator())
         let settings = NSMenuItem(title: "Settings…", action: #selector(mainMenuSettings), keyEquivalent: ",")
         settings.target = self

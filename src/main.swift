@@ -3,7 +3,7 @@ import ApplicationServices
 import ServiceManagement
 import UserNotifications
 
-let appVersion = "0.9.1"
+let appVersion = "0.9.2"
 
 // The one-time "Allow" box before the Downloads widget is switched on (menu and Settings share it). The
 // first folder read afterwards is what makes macOS ask for Downloads access, so the user hears about it first.
@@ -60,6 +60,26 @@ let args = CommandLine.arguments
 // --prime-permissions: ask macOS now for every permission the tab features need (Automation for each
 // installed browser), so the user answers all the prompts in one sitting. Browsers that are not running
 // are started hidden for the question and quit again. Prints one line per browser and exits.
+// --update-check: print what Check for Updates would find. --update-install: also install it in place (no relaunch).
+// For tests and support; the app itself uses the menu item.
+if args.contains("--update-check") || args.contains("--update-install") {
+    _ = NSApplication.shared
+    let install = args.contains("--update-install")
+    Updater.shared.check { result in
+        switch result {
+        case .upToDate(let v): print("up to date: \(v)"); exit(0)
+        case .failed(let why): print("failed: \(why)"); exit(1)
+        case .available(let v, let dmg, _):
+            print("available: \(v) \(dmg.absoluteString)")
+            guard install else { exit(0) }
+            Updater.shared.install(version: v, dmg: dmg, relaunch: false) { why in
+                if let why { print("install failed: \(why)"); exit(2) }
+                print("installed: \(v) at \(Bundle.main.bundlePath)"); exit(0)
+            }
+        }
+    }
+    RunLoop.main.run()
+}
 if args.contains("--prime-permissions") {
     _ = NSApplication.shared
     // Launched with `open` (so macOS credits the prompts to Swap, not to a terminal), it reports to a log.

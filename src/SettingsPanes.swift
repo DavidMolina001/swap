@@ -733,7 +733,7 @@ struct AboutPane: View {
             }
             Section {
                 LabeledContent("Updates") {
-                    Button("See Releases on GitHub") { open(repo + "/releases/latest") }
+                    Button("Check for Updates…") { Updater.shared.checkInteractively() }
                 }
             }
             Section {
